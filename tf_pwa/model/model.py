@@ -42,6 +42,27 @@ def _batch_sum(f, data_i, weight_i, trans, resolution_size, args, kwargs):
     y_i = tf.reduce_sum(event_w * part_y)
     return y_i
 
+def sum_nll(
+    f,
+    data,
+    var,
+    weight=1.0,
+    trans=tf.identity,
+    resolution_size=1,
+    args=(),
+    kwargs=None,
+):
+    kwargs = kwargs if kwargs is not None else {}
+    if isinstance(weight, float):
+        weight = _loop_generator(weight)
+    ys = []
+    for data_i, weight_i in zip(data, weight):
+        y_i = _batch_sum(
+            f, data_i, weight_i, trans, resolution_size, args, kwargs
+        )
+        ys.append(y_i)
+    nll = sum(ys)
+    return nll
 
 def sum_gradient(
     f,

@@ -727,6 +727,19 @@ class VarsManager(object):
                 yvals[i] = self.bnd_dic[name].get_x2y(xvals[i])
         self.set_all(yvals)
 
+    def trans_fcn(self, fcn):
+        def fcn_t(xvals):
+            xvals = np.array(xvals)
+            yvals = xvals.copy()
+            for i, name in enumerate(self.trainable_vars):
+                if name in self.bnd_dic:
+                    yvals[i] = self.bnd_dic[name].get_x2y(xvals[i])
+            fcn_value = fcn(yvals)
+
+            return fcn_value
+
+        return fcn_t
+
     def trans_fcn_grad(self, fcn_grad):  # bound transform fcn and grad
         """
         :math:`F(x)=F(y(x))`, :math:`G(x)=\\frac{dF}{dx}=\\frac{dF}{dy}\\frac{dy}{dx}`

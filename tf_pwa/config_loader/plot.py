@@ -383,7 +383,7 @@ def _plot_partial_wave(
     save_pdf=False,
     bin_scale=3,
     single_legend=False,
-    format="png",
+    format="pdf",
     nll=None,
     smooth=True,
     color_first=True,
@@ -393,16 +393,22 @@ def _plot_partial_wave(
     # cmap = plt.get_cmap("jet")
     # N = 10
     # colors = [cmap(float(i) / (N+1)) for i in range(1, N+1)]
-    colors = [
-        "red",
-        "orange",
-        "purple",
-        "springgreen",
-        "y",
-        "green",
-        "blue",
-        "c",
-    ]
+    colors = plt.get_cmap('tab10').colors
+    # [
+    #     "red",
+    #     "orange",
+    #     "purple",
+    #     "springgreen",
+    #     "y",
+    #     # "maroon",
+    #     # "peru",
+    #     "green",
+    #     "blue",
+    #     "c",
+    #     "slategrey",
+    #     # "darkgoldenrod",
+    #     # "crimson"
+    # ]
     linestyles = ["-", "--", "-.", ":"]
 
     data_weights = data_dict["data_weights"]

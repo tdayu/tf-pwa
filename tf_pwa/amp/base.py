@@ -262,8 +262,14 @@ class ParticleKmatrix(Particle):
 class ParticleLass(Particle):
     def init_params(self):
         super(ParticleLass, self).init_params()
-        self.a = self.add_var("a")
-        self.r = self.add_var("r")
+        if self.a0 is None:
+            self.a = self.add_var("a")
+        else:
+            self.a = self.add_var("a", value=self.a0, fix=True)
+        if self.r0 is None:
+            self.r = self.add_var("r")
+        else:
+            self.r = self.add_var("r", value=self.r0, fix=True)
 
     def get_amp(self, data, data_c=None, **kwargs):
         r"""

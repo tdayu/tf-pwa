@@ -190,10 +190,10 @@ class SimpleData:
         ret = []
         if isinstance(weight_files, list):
             for i in weight_files:
-                data = np.loadtxt(i).reshape((-1,))
+                data = np.load(i).reshape((-1,))
                 ret.append(data)
         elif isinstance(weight_files, str):
-            data = np.loadtxt(weight_files).reshape((-1,))
+            data = np.load(weight_files).reshape((-1,))
             ret.append(data)
         else:
             raise TypeError(
@@ -346,13 +346,13 @@ class MultiData(SimpleData):
             if isinstance(bg_value, str):
                 bg_value = [bg_value]
             for i, file_name in enumerate(bg_value):
-                ret[i]["bg_value"] = np.reshape(np.loadtxt(file_name), (-1,))
+                ret[i]["bg_value"] = np.reshape(np.load(file_name), (-1,))
         eff_value = self.dic.get(idx + "_eff_value", None)
         if eff_value is not None:
             if isinstance(eff_value, str):
                 eff_value = [eff_value]
             for i, file_name in enumerate(eff_value):
-                ret[i]["eff_value"] = np.reshape(np.loadtxt(file_name), (-1,))
+                ret[i]["eff_value"] = np.reshape(np.load(file_name), (-1,))
         ret = self.process_scale(idx, ret)
         return ret
 

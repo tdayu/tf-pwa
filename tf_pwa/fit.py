@@ -235,13 +235,13 @@ def fit_scipy(
             gs.append((nll0 - nll1) / 2e-5)
         return nll, np.array(gs)
 
-    if check_grad:
-        print("checking gradients ...")
-        f_g = fcn.vm.trans_fcn_grad(fcn.nll_grad)
-        nll, gs0 = f_g(x0)
-        _, gs = v_g2(x0)
-        for i, name in enumerate(args_name):
-            print(args_name[i], gs[i], gs0[i])
+    # if check_grad:
+    #     print("checking gradients ...")
+    #     f_g = fcn.vm.trans_fcn_grad(fcn.nll_grad)
+    #     nll, gs0 = f_g(x0)
+    #     _, gs = v_g2(x0)
+    #     for i, name in enumerate(args_name):
+    #         print(args_name[i], gs[i], gs0[i])
 
     if method in ["BFGS", "CG", "Nelder-Mead", "test"]:
 
@@ -262,6 +262,13 @@ def fit_scipy(
 
         f_g = fcn.vm.trans_fcn_grad(fcn.nll_grad)
         x0 = np.array(fcn.vm.get_all_val(True))
+
+        tf.profiler.experimental.start('profile')
+        for step in range(5):
+            with tf.profiler.experimental.Trace('TraceContext', step_num=step):
+                y = f_g(x0)
+        tf.profiler.experimental.stop()
+
         # print(x0, fcn.vm.get_all_dic())
         # s = minimize(f_g, x0, method='trust-constr', jac=True, hess=BFGS(), options={'gtol': 1e-4, 'disp': True})
         if method == "test":
@@ -383,17 +390,23 @@ def fit_scipy(
         raise Exception("unknown method")
     if check_grad:
         print("checking gradients ...")
+        longest = max(len(name) for name in args_name)
         f_g = fcn.vm.trans_fcn_grad(fcn.nll_grad)
+        fcn_t = fcn.vm.trans_fcn(fcn)
         _, gs0 = f_g(xn)
-        gs = []
-        for i, name in enumerate(args_name):
-            xn[i] += 1e-5
-            nll0, _ = f_g(xn)
-            xn[i] -= 2e-5
-            nll1, _ = f_g(xn)
-            xn[i] += 1e-5
-            gs.append((nll0 - nll1) / 2e-5)
-            print(args_name[i], gs[i], gs0[i])
+        # gs = []
+        with open("gradient.txt", "w") as file:
+            for i, name in enumerate(args_name):
+                # xn[i] += 1e-5
+                # nll0 = fcn_t(xn)
+                # xn[i] -= 2e-5
+                # nll1 = fcn_t(xn)
+                # xn[i] += 1e-5
+                # gs.append((nll0 - nll1) / 2e-5)
+                string = f"{args_name[i] + ' '*(longest - len(args_name[i]))}\t {gs0[i]:.4e}"
+                print(string)
+                file.write(string + "\n")
+            file.close()
     params = fcn.get_params()  # vm.get_all_dic()
     return FitResult(
         params, fcn, min_nll, ndf=ndf, success=success, hess_inv=hess_inv
