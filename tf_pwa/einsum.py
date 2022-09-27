@@ -141,38 +141,39 @@ def remove_size1(expr, *args, extra=None):
 
     return expr2, ret, size_map
 
-
+@tf.function
 def einsum(expr, *args, **kwargs):
-    shapes = [replace_none_in_shape(i.shape, 10000) for i in args]
-    expr, extra = replace_ellipsis(expr, shapes)
-    path, path_info = contract_path(
-        expr, *shapes, shapes=True, optimize="auto"
-    )
-    final_idx = expr.split("->")[1]
-    expr2, args, size_map = remove_size1(expr, *args, extra=extra)
-    final_shape = [size_map[i] for i in final_idx]
-    base_order = ordered_indices(expr2, shapes)
-    ein_s = expr2.split("->")
-    final_index = ein_s[1]
-    idxs = ein_s[0].split(",")
-
-    data = list(args)
-    in_idx = list(idxs)
-    for idx in path:
-        part_data = [data[i] for i in idx]
-        part_in_idx = [in_idx[i] for i in idx]
-        for i in sorted(idx)[::-1]:
-            del data[i]
-            del in_idx[i]
-        out_idx = set("".join(part_in_idx)) & set(
-            final_index + "".join(in_idx)
+    with tf.name_scope("einsum") as scope:
+        shapes = [replace_none_in_shape(i.shape, 10000) for i in args]
+        expr, extra = replace_ellipsis(expr, shapes)
+        path, path_info = contract_path(
+            expr, *shapes, shapes=True, optimize="auto"
         )
-        out_idx = "".join(sorted(out_idx, key=lambda x: base_order[x]))
-        in_idx.append(out_idx)
-        expr_i = "{}->{}".format(",".join(part_in_idx), out_idx)
-        result = tensor_einsum_reduce_sum(expr_i, *part_data, order=base_order)
-        data.append(result)
-    return tf.reshape(data[0], replace_none_in_shape(final_shape, -1))
+        final_idx = expr.split("->")[1]
+        expr2, args, size_map = remove_size1(expr, *args, extra=extra)
+        final_shape = [size_map[i] for i in final_idx]
+        base_order = ordered_indices(expr2, shapes)
+        ein_s = expr2.split("->")
+        final_index = ein_s[1]
+        idxs = ein_s[0].split(",")
+
+        data = list(args)
+        in_idx = list(idxs)
+        for idx in path:
+            part_data = [data[i] for i in idx]
+            part_in_idx = [in_idx[i] for i in idx]
+            for i in sorted(idx)[::-1]:
+                del data[i]
+                del in_idx[i]
+            out_idx = set("".join(part_in_idx)) & set(
+                final_index + "".join(in_idx)
+            )
+            out_idx = "".join(sorted(out_idx, key=lambda x: base_order[x]))
+            in_idx.append(out_idx)
+            expr_i = "{}->{}".format(",".join(part_in_idx), out_idx)
+            result = tensor_einsum_reduce_sum(expr_i, *part_data, order=base_order)
+            data.append(result)
+        return tf.reshape(data[0], replace_none_in_shape(final_shape, -1))
 
 
 def tensor_einsum_reduce_sum(expr, *args, order):

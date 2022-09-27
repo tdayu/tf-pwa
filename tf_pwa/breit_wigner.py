@@ -38,17 +38,19 @@ def regist_lineshape(name=None):
 
 
 @regist_lineshape("one")
+@tf.function
 def one(*args):
     """
     A uniform function
     """
     return tf.complex(
         1.0, 0.0
-    )  # breit_wigner_dict["one"]==tf.complex(1.0,0.0)
+    )
 
 
 @regist_lineshape("BW")
-def BW(m, m0, g0, *args):
+@tf.function
+def BW(m, m0, g0):
     """
     Breit-Wigner function
 
@@ -56,17 +58,19 @@ def BW(m, m0, g0, *args):
         BW(m) = \\frac{1}{m_0^2 - m^2 -  i m_0 \\Gamma_0 }
 
     """
-    m0 = tf.cast(m0, m.dtype)
-    gamma = tf.cast(g0, m.dtype)
-    x = m0 * m0 - m * m
-    y = m0 * gamma
-    s = x * x + y * y
-    ret = tf.complex(x / s, y / s)
-    return ret
+    with tf.name_scope("BW") as scope:
+        m0 = tf.cast(m0, m.dtype)
+        gamma = tf.cast(g0, m.dtype)
+        x = m0 * m0 - m * m
+        y = m0 * gamma
+        s = x * x + y * y
+        ret = tf.complex(x / s, y / s)
+        return ret
 
 
 @regist_lineshape("default")  # 两个名字
 @regist_lineshape("BWR")  # BW with running width
+@tf.function
 def BWR(m, m0, g0, q, q0, L, d):
     """
     Relativistic Breit-Wigner function (with running width). It's also set as the default lineshape.
@@ -75,14 +79,14 @@ def BWR(m, m0, g0, q, q0, L, d):
         BW(m) = \\frac{1}{m_0^2 - m^2 -  i m_0 \\Gamma(m)}
 
     """
-    gamma = Gamma(m, g0, q, q0, L, m0, d)
-    num = 1.0
-    m0 = tf.cast(m0, m.dtype)
-    x = m0 * m0 - m * m
-    y = m0 * gamma
-    s = x * x + y * y
-    ret = tf.complex(x / s, y / s)
-    return ret
+    with tf.name_scope("BWR") as scope:
+        gamma = Gamma(m, g0, q, q0, L, m0, d)
+        m0 = tf.cast(m0, m.dtype)
+        x = m0 * m0 - m * m
+        y = m0 * gamma
+        s = x * x + y * y
+        ret = tf.complex(x / s, y / s)
+        return ret
 
 
 # added by xiexh for GS model rho
@@ -221,7 +225,7 @@ def BWR_normal(m, m0, g0, q2, q02, L, d):
     ret = tf.sqrt(tf.cast(m0, gamma.dtype) * gamma) / (x - 1j * y)
     return ret
 
-
+@tf.function
 def Gamma(m, gamma0, q, q0, L, m0, d):
     """
     Running width in the RBW
@@ -230,13 +234,14 @@ def Gamma(m, gamma0, q, q0, L, m0, d):
         \\Gamma(m) = \\Gamma_0 \\left(\\frac{q}{q_0}\\right)^{2L+1}\\frac{m_0}{m} B_{L}'^2(q,q_0,d)
 
     """
-    q0 = tf.cast(q0, q.dtype)
-    _epsilon = 1e-15
-    qq0 = tf.where(q0 > _epsilon, (q / q0) ** (2 * L + 1), 1.0)
-    mm0 = tf.cast(m0, m.dtype) / m
-    bp = Bprime(L, q, q0, d) ** 2
-    gammaM = gamma0 * qq0 * mm0 * tf.cast(bp, qq0.dtype)
-    return gammaM
+    with tf.name_scope("Gamma") as scope:
+        q0 = tf.cast(q0, q.dtype)
+        _epsilon = 1e-15
+        qq0 = tf.where(q0 > _epsilon, (q / q0) ** (2 * L + 1), 1.0)
+        mm0 = tf.cast(m0, m.dtype) / m
+        bp = Bprime(L, q, q0, d) ** 2
+        gammaM = gamma0 * qq0 * mm0 * tf.cast(bp, qq0.dtype)
+        return gammaM
 
 
 def Gamma2(m, gamma0, q2, q02, L, m0, d):
@@ -273,6 +278,7 @@ def Bprime_q2(L, q2, q02, d):
     return tf.sqrt(tf.where(bp > 0, bp, 1.0))
 
 
+@tf.function
 def Bprime_num(L, q, d):
     """
     The numerator (as well as the denominator) inside the square root in the barrier factor
@@ -282,7 +288,7 @@ def Bprime_num(L, q, d):
     bp = Bprime_polynomial(L, z)
     return tf.sqrt(bp)
 
-
+@tf.function
 def Bprime(L, q, q0, d):
     """
     Blatt-Weisskopf barrier factors. E.g. the first three orders
@@ -325,7 +331,8 @@ def barrier_factor2(l, q, q0, d=3.0, axis=-1):  # cache q^l * B_l 只用于H里
     return tf.concat(ret, axis=axis)
 
 
-def Bprime_polynomial(l, z):
+@tf.function
+def Bprime_polynomial(l : int, z : tf.Tensor):
     """
     It stores the Blatt-Weisskopf polynomial up to the fifth order (:math:`L=5`)
 

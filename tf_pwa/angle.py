@@ -256,6 +256,7 @@ class EulerAngle(dict):
         # np.arctan2(u_z2.Dot(u_xr),u_z2.Dot(u_z1))
         beta = Vector3.angle_from(u_z2, u_z1, u_xr)
         gamma = tf.zeros_like(beta)
+        # gamma = tf.constant([0.], dtype=beta.dtype, name="gamma")
         u_x2 = Vector3.cross_unit(u_yr, u_z2)
         return (EulerAngle(alpha, beta, gamma), u_x2)
 

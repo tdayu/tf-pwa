@@ -467,8 +467,10 @@ def _plot_partial_wave(
             legends.append(le)
             legends_label.append("back ground")
 
-        le2 = fitted_hist.draw(ax, label="total fit", color="black")
-        legends.append(le2[0])
+        # le2 = fitted_hist.draw(ax, label="total fit", color="black")
+        # legends.append(le2[0])
+        le2 = fitted_hist.draw_error(ax, label="total fit", fmt=".", color="firebrick")
+        legends.append(le2)
         legends_label.append("total fit")
         if color_first:
             style = itertools.product(linestyles, colors)
@@ -587,6 +589,7 @@ def _plot_partial_wave(
                 ax2.set_xlim(xrange)
         # ax.set_yscale("log")
         # ax.set_ylim([0.1, 1e3])
+        fig.tight_layout()
         fig.savefig(prefix + name + "." + format, dpi=300)
         if single_legend:
             export_legend(ax, prefix + "legend.{}".format(format))

@@ -5,14 +5,15 @@ from .data import data_merge
 has_uproot = True
 try:
     import uproot3 as uproot
+    uproot_version = int(uproot.__version__.split(".")[0])
 except ImportError as e:
     try:
         import uproot
+        uproot_version = int(uproot.__version__.split(".")[0])
     except ImportError as e:
         has_uproot = False
         print(e, "you should install `uproot` correctly for using this module")
 
-uproot_version = int(uproot.__version__.split(".")[0])
 
 
 def load_root_data(fnames):

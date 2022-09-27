@@ -640,7 +640,9 @@ class ConfigLoader(BaseConfig):
 
         print("\n########### initial parameters")
         print(json.dumps(amp.get_params(), indent=2), flush=True)
-        print("initial NLL: ", fcn({}))  # amp.get_params()))
+
+        # print("initial NLL: ", tf.stop_gradient(fcn({})))  # amp.get_params()))
+
         # fit configure
         # self.bound_dic[""] = (,)
         self.fit_params = fit(
@@ -901,7 +903,7 @@ class ConfigLoader(BaseConfig):
                 self.config.set_params(final_params)
                 self.all_variables = self.amp.vm.variables
 
-            @tf.function()
+            # @tf.function()
             def __call__(self, *p):
                 data = self.config.data.cal_angle(p)
                 return self.amp(data)

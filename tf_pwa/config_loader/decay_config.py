@@ -307,6 +307,7 @@ class DecayConfig(BaseConfig):
             top_tmp, res, finals_tmp = split_particle_type(decs)
         if top is None:
             top_tmp = list(top_tmp)
+            ## Needs better error message, possibly print the different decay chains, grouped by top particle?
             assert len(top_tmp) == 1, "not only one top particle"
             top = list(top_tmp)[0]
         else:

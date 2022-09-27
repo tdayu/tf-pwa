@@ -190,6 +190,7 @@ def exp_i(theta, mi):
     return exp_theta
 
 
+@tf.function
 def D_matrix_conj(alpha, beta, gamma, j):
     """
     The conjugated D-matrix element with indices (:math:`m_1,m_2`) is
@@ -204,18 +205,20 @@ def D_matrix_conj(alpha, beta, gamma, j):
     :param j: Integer :math:`2j` in the formula
     :return: Array of the conjugated D-matrices. Same shape as **alpha**, **beta**, and **gamma**
     """
-    m = tf.reshape(np.arange(-j / 2, j / 2 + 1, 1), (1, -1))
+    with tf.name_scope("D_matrix_conj") as scope:
+        m = tf.reshape(np.arange(-j / 2, j / 2 + 1, 1), (1, -1))
 
-    d = small_d_matrix(beta, j)
-    expi_alpha = tf.reshape(exp_i(alpha, m), (-1, j + 1, 1))
-    expi_gamma = tf.reshape(exp_i(gamma, m), (-1, 1, j + 1))
-    expi_gamma = tf.cast(expi_gamma, dtype=expi_alpha.dtype)
-    dc = tf.complex(d, tf.zeros_like(d))
-    ret = tf.cast(expi_alpha * expi_gamma, dc.dtype) * dc
+        d = small_d_matrix(beta, j)
+        expi_alpha = tf.reshape(exp_i(alpha, m), (-1, j + 1, 1))
+        expi_gamma = tf.reshape(exp_i(gamma, m), (-1, 1, j + 1))
+        expi_gamma = tf.cast(expi_gamma, dtype=expi_alpha.dtype)
+        dc = tf.complex(d, tf.zeros_like(d))
+        ret = tf.cast(expi_alpha * expi_gamma, dc.dtype) * dc
     return ret
 
 
-def get_D_matrix_for_angle(angle, j, cached=True):
+@tf.function
+def get_D_matrix_for_angle(angle, j, cached=False):
     """
     Interface to *D_matrix_conj()*
 
@@ -224,17 +227,18 @@ def get_D_matrix_for_angle(angle, j, cached=True):
     :param cached: Haven't been used???
     :return: Array of the conjugated D-matrices. Same length as the angle data
     """
-    alpha = angle["alpha"]
-    beta = angle["beta"]
-    gamma = angle["gamma"]
-    name = "D_matrix_{}".format(j)
-    if cached:
-        if name not in angle:
-            angle[name] = D_matrix_conj(alpha, beta, gamma, j)
-        return angle[name]
+    with tf.name_scope("get_D_matrix_for_angle") as scope:
+        alpha = angle["alpha"]
+        beta = angle["beta"]
+        gamma = angle["gamma"]
+        name = "D_matrix_{}".format(j)
+        if cached:
+            if name not in angle:
+                angle[name] = D_matrix_conj(alpha, beta, gamma, j)
+            return angle[name]
     return D_matrix_conj(alpha, beta, gamma, j)
 
-
+@tf.function
 def get_D_matrix_lambda(angle, ja, la, lb, lc=None):
     """
     Get the D-matrix element
@@ -246,10 +250,11 @@ def get_D_matrix_lambda(angle, ja, la, lb, lc=None):
     :param lc:
     :return:
     """
-    d = get_D_matrix_for_angle(angle, _spin_int(2 * ja))
-    if lc is None:
-        return tf.reshape(
-            Dfun_delta_v2(d, ja, la, lb, (0,)), (-1, len(la), len(lb))
-        )
-    else:
-        return Dfun_delta_v2(d, ja, la, lb, lc)
+    with tf.name_scope("get_D_matrix_lambda") as scope:
+        d = get_D_matrix_for_angle(angle, _spin_int(2 * ja))
+        if lc is None:
+            return tf.reshape(
+                Dfun_delta_v2(d, ja, la, lb, (0,)), (-1, len(la), len(lb))
+            )
+        else:
+            return Dfun_delta_v2(d, ja, la, lb, lc)

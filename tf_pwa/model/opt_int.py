@@ -154,7 +154,7 @@ class ModelCachedInt(Model):
 
         int_matrix = tf.reduce_sum(ret, axis=0)
 
-        @tf.function
+        # @tf.function
         def int_mc():
             pm = opt_int.build_params_matrix(dec)
             ret = tf.reduce_sum(pm * int_matrix)

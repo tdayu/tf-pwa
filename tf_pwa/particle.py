@@ -5,6 +5,7 @@ import functools
 from collections import UserList
 
 import numpy as np
+import tensorflow as tf
 
 from .breit_wigner import barrier_factor as default_barrier_factor
 from .cg import cg_coef
@@ -91,7 +92,7 @@ class BaseParticle(object):
         self.spins = tuple(
             [eval(i) if isinstance(i, str) else i for i in spins]
         )
-        self.mass = mass
+        self.mass = mass if mass else tf.Variable(0., dtype=tf.float64)
         self.width = width
         self.disable = disable
         for k, v in kwargs.items():

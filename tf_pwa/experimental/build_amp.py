@@ -66,7 +66,7 @@ def cached_amp2s(dg, data):
     _amp = cached_amp(dg, data)
 
     @time_print
-    @tf.function
+    # @tf.function
     def _amp2s():  # pragma: no cover # because of tf_funciton
         amp = _amp()
         amp2s = tf.math.real(amp * tf.math.conj(amp))
@@ -76,7 +76,7 @@ def cached_amp2s(dg, data):
 
 
 def build_amp2s(dg):
-    @tf.function(experimental_relax_shapes=True)
+    # @tf.function(experimental_relax_shapes=True)
     def _amp2s(data, cached_data):
         n_data = data_shape(data)
         pv = build_params_vector(dg, data)
@@ -127,7 +127,7 @@ def cached_amp(dg, data, matrix_method=build_angle_amp_matrix):
     idx, c_amp = matrix_method(dg, data)
     n_data = data_shape(data)
 
-    @tf.function
+    # @tf.function
     def _amp():
         pv = build_params_vector(dg, data)
         ret = []

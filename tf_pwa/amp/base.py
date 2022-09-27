@@ -317,12 +317,17 @@ class ParticleOne(Particle):
     def init_params(self):
         pass
 
+    @tf.function
     def get_amp(self, data, _data_c=None, **kwargs):
+        # Need to optimise this to just return single entry vector
         mass = data["m"]
-        zeros = tf.zeros_like(mass)
-        ones = tf.ones_like(mass)
+        zeros = tf.constant(0., dtype=mass.dtype)
+        ones = tf.constant(1., dtype=mass.dtype)
         return tf.complex(ones, zeros)
 
+
+    def init_data(self, data_c, data_p, **kwargs):
+        pass
 
 @regist_particle("exp")
 class ParticleExp(Particle):
