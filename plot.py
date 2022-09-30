@@ -430,6 +430,178 @@ class PipiKmatrix(HelicityDecay):
             all_data["pipi_S_wave_cache"] = { "NR" : cached_NR, 
                                               "pole" : cached_pole}
 
+## Pre-calculate matrix inversion in 128 bits (with numpy and scipy) for more precision
+## Cache the matrix in 64 bits in tensorflow
+@register_decay("KpiKMatrix")
+class KpiKmatrix(HelicityDecay):
+    def __init__(self, *args, **kwargs):
+        self.d = 3.0
+        self.pole_mass = np.sqrt(1.7919).astype(np.float128)
+        self.couplings = np.array([0.31072, -0.02323], dtype=np.float128)
+        self.C11 = np.array([0.00811, -0.15099, 0.79299], np.float128)
+        self.C22 = np.array([0.0022596, -0.038266, 0.15040], np.float128)
+        self.C12 = np.array([0.00085655, -0.0219, 0.17054], np.float128)
+        self.D = np.array([-0.00092057, 0.026637, -0.22147], np.float128)
+
+        super().__init__(*args, **kwargs)
+
+        self.n_ls = len(self.get_ls_list())
+
+        assert(kwargs["Kpi_system"] in self.outs[0].name or kwargs["Kpi_system"] in self.outs[1].name)
+        self.Kpi_system = self.outs[0] if kwargs["Kpi_system"] in self.outs[0].name else self.outs[1]
+
+    def init_params(self):
+        self.beta = []
+        self.c1_coefficients = []
+        self.c1_angles = []
+        self.c2 = []
+        self.c3 = []
+
+        # Initialize the floating parameters
+        for j, (l, s) in enumerate(self.get_ls_list()):
+            ls_c1_coefficients = []
+
+            self.beta.append(self.add_var(f"beta_l{l}_s{s}", is_complex=True))
+            self.c1_angles.append(self.add_var(f"c1_angle_l{l}_s{s}"))
+            self.c2.append(self.add_var(f"c20_l{l}_s{s}", is_complex=True))
+            self.c3.append(self.add_var(f"c30_l{l}_s{s}", is_complex=True))
+
+            ls_c1_coefficients.append(self.add_var(f"c12_l{l}_s{s}"))
+            ls_c1_coefficients.append(self.add_var(f"c11_l{l}_s{s}"))
+            ls_c1_coefficients.append(self.add_var(f"c10_l{l}_s{s}"))
+            self.c1_coefficients.append(ls_c1_coefficients)
+
+        # Initialize the starting values
+        for var in itertools.chain(self.beta, self.c2, self.c3):
+            var.set_value(np.random.uniform(-0.5, 0.5, size=2))
+        for var in self.c1_angles:
+            var.set_value(np.random.uniform(-np.pi, np.pi))
+        for coefficients in self.c1_coefficients:
+            for coef in coefficients:
+                coef.set_value(np.random.uniform(-0.5, 0.5))
+
+        self.beta[0].fixed(1.0) # Fix the first beta since this is absorbed by overall decay chain coupling
+
+    def get_cached_terms(self, m):
+        PI_MASS = 0.13957
+        K_MASS = 0.493677
+        ETAP_MASS = 0.95778
+        s_norm = K_MASS * K_MASS + PI_MASS * PI_MASS
+        s_0_I1 = 0.23
+        s_0_I3 = 0.27
+
+        def Kpi_I1_K_matrix(s):
+            common_factor = (s - s_0_I1) / s_norm
+            s_tilda = s/s_norm - 1
+
+            K11 = common_factor * (self.couplings[0] * self.couplings[0] / (np.square(self.pole_mass) - s) + np.polyval(self.C11, s_tilda))
+            K22 = common_factor * (self.couplings[1] * self.couplings[1] / (np.square(self.pole_mass) - s) + np.polyval(self.C22, s_tilda))
+            K12 = common_factor * (self.couplings[0] * self.couplings[1] / (np.square(self.pole_mass) - s) + np.polyval(self.C12, s_tilda))
+
+            K = np.zeros(shape=[s.size, 2, 2], dtype=np.float128)
+            K[:, 0, 0] = K11
+            K[:, 1, 1] = K22
+            K[:, 0, 1] = K12
+            K[:, 1, 0] = K12
+
+            return K
+
+        def Kpi_I3_K_matrix(s):
+            common_factor = (s - s_0_I3) / s_norm
+            s_tilda = s/s_norm - 1
+            K_matrix = common_factor * np.polyval(self.D, s_tilda)
+
+            return K_matrix
+
+        def two_body_phase_space(mass, m1, m2):
+            phase_space_squared = np.where(mass > np.abs(m1 - m2), (1 - np.square(m1 + m2)/np.square(mass)) * (1 - np.square(m1 - m2)/np.square(mass)), 0.)
+            phase_space = np.sqrt(np.abs(phase_space_squared))
+            phase_space = np.where(phase_space_squared >= 0, phase_space + 0j, 0 + phase_space * 1j)
+
+            return phase_space
+
+        def get_phase_space_matrix(mass):
+            matrix = np.zeros(shape=[mass.size, 2, 2], dtype=np.complex256)
+            matrix[:, 0, 0] = two_body_phase_space(mass, K_MASS, PI_MASS)
+            matrix[:, 1, 1] = two_body_phase_space(mass, K_MASS, ETAP_MASS)
+
+            return matrix
+
+        mass = m.numpy().astype(np.float128)
+        s = np.square(mass)
+
+        K_I1 = Kpi_I1_K_matrix(s)
+        rho = get_phase_space_matrix(mass)
+        eye = np.reshape(np.eye(2), [1, 2, 2])
+
+        K_matrix_term_I1 = eye - 1j * np.matmul(K_I1, rho)
+        inversed_matrix_I1 = np.stack([scipy.linalg.inv(r) for r in K_matrix_term_I1], 0)
+
+        inversed_matrix_I3 = 1./(1. - 1j * two_body_phase_space(mass, K_MASS, PI_MASS) * Kpi_I3_K_matrix(mass))
+
+        cached_pole_term = np.sum(inversed_matrix_I1[:, 0, :] * np.reshape(np.array(self.couplings), [1, -1]), -1) / (np.square(self.pole_mass) - s)
+
+        # cache the NR terms multiplied with the P vector
+        cached_NR_Kpi_term = inversed_matrix_I1[:, 0, 0]
+        cached_NR_Ketap_term = inversed_matrix_I1[:, 0, 0]
+
+        # cache the I=3/2 term
+        cached_I3_term = inversed_matrix_I3
+
+        return tf.convert_to_tensor(cached_pole_term.astype(np.complex128)), tf.convert_to_tensor(cached_NR_Kpi_term.astype(np.complex128)), tf.convert_to_tensor(cached_NR_Ketap_term.astype(np.complex128)), tf.convert_to_tensor(cached_I3_term.astype(np.complex128))
+
+    @tf.function
+    def get_ls_amp(self, data, data_p, **kwargs):
+        with tf.name_scope("Kpi_K_matrix") as scope:
+            mass = data_p[self.Kpi_system]["m"]
+            s = tf.square(mass)
+            s_hat = s - 2
+
+            # All of them have shape [n, 1]
+            cached_pole = kwargs["all_data"]["Kpi_S_wave_cache"]["pole"]
+            cached_Kpi_NR = kwargs["all_data"]["Kpi_S_wave_cache"]["Kpi_NR"]
+            cached_Ketap_NR = kwargs["all_data"]["Kpi_S_wave_cache"]["Ketap_NR"]
+            cached_I3 = kwargs["all_data"]["Kpi_S_wave_cache"]["I3"]
+
+            beta = tf.expand_dims(tf.stack([b() for b in self.beta]), axis=0) # [1, n_ls]
+            ls_c1 = [[c1() for c1 in ls_c1_coefficients] for ls_c1_coefficients in self.c1_coefficients] # list of size n_ls, entries shape [3] for 3 c1
+            c2 = tf.expand_dims(tf.stack([c() for c in self.c2]), axis=0) # [1, n_ls]
+            c3 = tf.expand_dims(tf.stack([c() for c in self.c3]), axis=0) # [1, n_ls]
+            ls_c1_angle = tf.expand_dims(tf.stack([angle() for angle in self.c1_angles]), axis=0) # [1, n_ls]
+
+            F1_pole = beta * cached_pole # [n, n_ls]
+
+            Kpi_NR_polynomial = tf.stack([tf.math.polyval(c1, s_hat) for c1 in ls_c1], axis=-1) # [n, n_ls]
+            P_vector_Kpi_NR = tf.complex(tf.cos(ls_c1_angle), tf.sin(ls_c1_angle)) * tf.complex(Kpi_NR_polynomial, tf.constant(0., dtype=tf.float64))
+            P_vector_Ketap_NR = tf.identity(c2)
+            F1_NR = P_vector_Kpi_NR * cached_Kpi_NR + P_vector_Ketap_NR * cached_Ketap_NR
+
+            F3 = c3 * cached_I3
+
+            amplitude = F1_pole + F1_NR + F3
+
+            if self.has_barrier_factor:
+                _, q0 = self.get_relative_momentum(data_p, False)
+                _, q = self.get_relative_momentum(data_p, True)
+
+                bf = self.get_barrier_factor2(
+                    data_p[self.core]["m"], q, q0, self.d
+                )
+                amplitude = amplitude * tf.cast(bf, amplitude.dtype)
+
+        return amplitude
+
+    def init_data(self, data_c, data_p, all_data):
+        super(KpiKmatrix, self).init_data(data_c, data_p, all_data)
+
+        if "Kpi_S_wave_cache" not in all_data:
+            Kpi_mass = data_p[self.Kpi_system]["m"]
+            cached_pole, cached_Kpi_NR, cached_Ketap_NR, cached_I3 = self.get_cached_terms(Kpi_mass)
+            all_data["Kpi_S_wave_cache"] = { "pole" : tf.expand_dims(cached_pole, axis=-1),
+                                             "Kpi_NR" : tf.expand_dims(cached_Kpi_NR, axis=-1),
+                                             "Ketap_NR" : tf.expand_dims(cached_Ketap_NR, axis=-1),
+                                             "I3" : tf.expand_dims(cached_I3, axis=-1)}
+
 def json_print(dic):
     """print parameters as json"""
     s = json.dumps(dic, indent=2)
@@ -990,6 +1162,8 @@ plt.rcParams["xtick.minor.visible"] = True
 os.makedirs(arguments.prefix, exist_ok=True)
 config = ConfigLoader(arguments.config)
 config.set_params("final_params.json")
+
+tf.config.run_functions_eagerly(True)
 if arguments.single_resonance:
     config.plot_resonance(plot_pull=True, prefix=arguments.prefix)
 else:

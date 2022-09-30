@@ -482,9 +482,9 @@ class KpiKmatrix(HelicityDecay):
             self.c2.append(self.add_var(f"c20_l{l}_s{s}", is_complex=True))
             self.c3.append(self.add_var(f"c30_l{l}_s{s}", is_complex=True))
 
-            ls_c1_coefficients.append(self.add_var("c12_l{l}_s{s}"))
-            ls_c1_coefficients.append(self.add_var("c11_l{l}_s{s}"))
-            ls_c1_coefficients.append(self.add_var("c10_l{l}_s{s}"))
+            ls_c1_coefficients.append(self.add_var(f"c12_l{l}_s{s}"))
+            ls_c1_coefficients.append(self.add_var(f"c11_l{l}_s{s}"))
+            ls_c1_coefficients.append(self.add_var(f"c10_l{l}_s{s}"))
             self.c1_coefficients.append(ls_c1_coefficients)
 
         # Initialize the starting values
@@ -651,7 +651,7 @@ def fit(config, init_params="", method="BFGS", loop=1, maxiter=500, improve=Fals
         # try to fit
         try:
             fit_result = config.fit(
-                batch=80000, method=method, maxiter=maxiter, improve=improve, check_grad=check_grad
+                batch=92000, method=method, maxiter=maxiter, improve=improve, check_grad=check_grad
             )
         except KeyboardInterrupt:
             config.save_params("break_params.json")
@@ -679,7 +679,7 @@ def fit(config, init_params="", method="BFGS", loop=1, maxiter=500, improve=Fals
 
     # calculate parameters error
     if maxiter != 0:
-        fit_error = config.get_params_error(fit_result, batch=80000)
+        fit_error = config.get_params_error(fit_result, batch=92000)
         fit_result.set_error(fit_error)
         fit_result.save_as("final_params.json")
         pprint(fit_error)

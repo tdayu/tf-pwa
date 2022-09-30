@@ -93,7 +93,7 @@ def sum_gradient(
     i = 0
     for data_i, weight_i in zip(data, weight):
         with tf.GradientTape() as tape:
-            # print(f"batch {i}")
+            print(f"batch {i}")
             i += 1
             y_i = _batch_sum(
                 f, data_i, weight_i, trans, resolution_size, args, kwargs
@@ -1121,8 +1121,8 @@ class FCN(object):
         self.model.init_data(self.data)
         self.model.init_data(self.mcdata)
 
-        self.batch_data = list(split_generator(data, batch))
-        self.batch_mcdata = list(split_generator(mcdata, batch))
+        self.batch_data = list(split_generator(data, batch))[:-1]
+        self.batch_mcdata = list(split_generator(mcdata, batch))[:-1]
         # print(list(self.batch_data[0]['decay'].values())[0])
         self.batch = batch
         if "weight" in mcdata:

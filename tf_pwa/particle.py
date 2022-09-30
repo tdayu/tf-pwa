@@ -92,7 +92,7 @@ class BaseParticle(object):
         self.spins = tuple(
             [eval(i) if isinstance(i, str) else i for i in spins]
         )
-        self.mass = mass if mass else tf.Variable(0., dtype=tf.float64)
+        self.mass = mass
         self.width = width
         self.disable = disable
         for k, v in kwargs.items():
@@ -152,6 +152,134 @@ class BaseParticle(object):
 
     def __lt__(self, other):
         if isinstance(other, BaseParticle):
+            return (self.name, self._id) < (other.name, other._id)
+        return self.__repr__() < other
+
+    def __add__(self, other):
+        return ParticleList([self]) + other
+
+    def __lshift__(self, other):
+        _BaseDecay, kwargs = get_config(DEFAULT_DECAY, (BaseDecay, {}))
+        return _BaseDecay(self, other, **kwargs)
+
+    def chain_decay(self):
+        """return all decay chain self decay to"""
+        ret = []
+        for i in self.decay:
+            ret_tmp = [[[i]]]
+            for j in i.outs:
+                tmp = j.chain_decay()
+                if tmp:  # if tmp is not []
+                    ret_tmp.append(tmp)
+            ret += cross_combine(ret_tmp)
+        return ret
+
+    def get_resonances(self):
+        """return all resonances self decay to"""
+        decay_chain = self.chain_decay()
+        chains = [DecayChain(i) for i in decay_chain]
+        decaygroup = DecayGroup(chains)
+        return decaygroup.resonances
+
+@functools.total_ordering
+class ParticleKey(object):
+    """
+    Base Particle object. Name is "name[:id]".
+
+    :param name: String. Name of the particle
+    :param J: Integer or half-integer. The total spin
+    :param P: 1 or -1. The parity
+    :param spins: List. The spin quantum numbers. If it's not provided, ``spins`` will be ``tuple(range(-J, J + 1))``.
+    :param mass: Real variable
+    :param width: Real variable
+    """
+
+    def __init__(
+        self,
+        name,
+        J=0,
+        P=-1,
+        C=None,
+        spins=None,
+        mass=None,
+        width=None,
+        id_=None,
+        disable=False,
+        **kwargs
+    ):
+        self.set_name(name, id_)
+        self.decay = []  # list of Decay
+        self.creators = []  # list of Decay which creates the particle
+        if isinstance(J, str):
+            J = eval(J)
+        self.J = J
+        self.P = P
+        self.C = C
+        if spins is None:
+            spins = tuple(_spin_range(-J, J))
+        self.spins = tuple(
+            [eval(i) if isinstance(i, str) else i for i in spins]
+        )
+        self.mass = mass
+        self.width = width
+        self.disable = disable
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def set_name(self, name, id_=None):
+        if id_ is None:
+            names = name.split(":")
+            if len(names) > 1:
+                self._name = ":".join(names[:-1])
+                try:
+                    self._id = int(names[-1])
+                except ValueError:
+                    self._name, self._id = name, 0
+            else:
+                self._name, self._id = name, 0
+        else:
+            self._name, self._id = name, id_
+
+    @property
+    def name(self):
+        return self._name
+
+    def add_decay(self, d):
+        """
+        :param d: BaseDecay object
+        """
+        if d not in self.decay:
+            self.decay.append(d)
+
+    def remove_decay(self, d):
+        """
+        :param d: BaseDecay object
+        """
+        self.decay.remove(d)
+
+    def add_creator(self, d):
+        """
+        Add a decay reaction where the particle is created.
+
+        :param d: BaseDecay object
+        """
+        self.creators.append(d)
+
+    def __repr__(self):
+        if self._id == 0:
+            return self._name
+        return "{}:{}".format(self.name, self._id)
+
+    def __hash__(self):
+        return hash((self.name, self._id))
+
+    def __eq__(self, other):
+        if not (isinstance(other, BaseParticle) or isinstance(other, ParticleKey)):
+            return False
+        return (self.name, self._id) == (other.name, other._id)
+
+    def __lt__(self, other):
+        if isinstance(other, BaseParticle) or isinstance(other, ParticleKey):
             return (self.name, self._id) < (other.name, other._id)
         return self.__repr__() < other
 

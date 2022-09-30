@@ -218,7 +218,7 @@ def fit_scipy(
     hess_inv = None
     now = time.time()
     if maxiter is None:
-        maxiter = max(100 * len(x0), 2000)
+        maxiter = max(100 * len(x0), 3000)
     min_nll = 0.0
     ndf = 0
     # maxiter = 0

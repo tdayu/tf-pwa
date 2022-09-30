@@ -827,9 +827,9 @@ class HelicityDecay(AmpDecay):
         m_dep = 1.0 / tf.pow(tf.expand_dims(mass, -1), ls)
         return m_dep
 
-    # @tf.function
+    @tf.function
     def get_amp(self, data, data_p, **kwargs):
-        with tf.name_scope("helicity_amp") as scope:
+        with tf.name_scope("HelicityDecay_get_amp") as scope:
             a = self.core
             b = self.outs[0]
             c = self.outs[1]
@@ -916,13 +916,21 @@ class HelicityDecay(AmpDecay):
         return tuple(ret)
 
     def init_data(self, data_c, data_p, all_data):
-        # These masses are initialised to 0. if not supplied by user
-        if tf.equal(self.core.get_mass(), 0.).numpy():
-            self.core.mass.assign(tf.reduce_mean(data_p[self.core]["m"]).numpy())
-        if tf.equal(self.outs[0].get_mass(), 0.).numpy():
-            self.outs[0].mass.assign(tf.reduce_mean(data_p[self.outs[0]]["m"]).numpy())
-        if tf.equal(self.outs[1].get_mass(), 0.).numpy():
-            self.outs[1].mass.assign(tf.reduce_mean(data_p[self.outs[1]]["m"]).numpy())
+        if self.core.get_mass() is None:
+            self.core.mass = tf.convert_to_tensor(tf.reduce_mean(data_p[self.core]["m"]).numpy())
+        elif tf.equal(self.core.get_mass(), 0.).numpy():
+            self.core.mass.set_value(tf.reduce_mean(data_p[self.core]["m"]).numpy())
+            # self.core.mass.assign(tf.reduce_mean(data_p[self.core]["m"]).numpy())
+        if self.outs[0].get_mass() is None:
+            self.outs[0].mass = tf.convert_to_tensor(tf.reduce_mean(data_p[self.outs[0]]["m"]).numpy())
+        elif tf.equal(self.outs[0].get_mass(), 0.).numpy():
+            self.outs[0].mass.set_value(tf.reduce_mean(data_p[self.outs[0]]["m"]).numpy())
+            # self.outs[0].mass.assign(tf.reduce_mean(data_p[self.outs[0]]["m"]).numpy())
+        if self.outs[1].get_mass() is None:
+            self.outs[1].mass = tf.convert_to_tensor(tf.reduce_mean(data_p[self.outs[1]]["m"]).numpy())
+        elif tf.equal(self.outs[1].get_mass(), 0.).numpy():
+            self.outs[1].mass.set_value(tf.reduce_mean(data_p[self.outs[1]]["m"]).numpy())
+            # self.outs[1].mass.assign(tf.reduce_mean(data_p[self.outs[1]]["m"]).numpy())
 
         self.get_cg_matrix() ## cache the cg matrix outside graph building
 
@@ -1011,51 +1019,53 @@ class DecayChain(AmpDecayChain):
         total = tf.where(charge_cond, total_pos, total_neg)
         return total
 
+    @tf.function
     def get_amp(self, data_c, data_p, all_data=None, base_map=None):
-        base_map = self.get_base_map(base_map)
-        iter_idx = ["..."]
-        amp_d = []
-        indices = []
-        final_indices = "".join(iter_idx + self.amp_index(base_map))
-        for i in self:
-            indices.append(i.amp_index(base_map))
-            amp_d.append(i.get_amp(data_c[i], data_p, all_data=all_data))
-
-        if self.need_amp_particle:
-            rs = self.get_amp_particle(data_p, data_c, all_data=all_data)
-
-            total = self.get_cp_amp_total(
-                charge=all_data.get("charge_conjugation", 1)
-            )
-            if rs is not None:
-                total = total * tf.cast(rs, total.dtype)
-            # print(total)*self.get_amp_total()
-            amp_d.append(total)
-            indices.append([])
-
-        if self.aligned:
+        with tf.name_scope("DecayChain_get_amp") as scope:
+            base_map = self.get_base_map(base_map)
+            iter_idx = ["..."]
+            amp_d = []
+            indices = []
+            final_indices = "".join(iter_idx + self.amp_index(base_map))
             for i in self:
-                for j in i.outs:
-                    if j.J != 0 and "aligned_angle" in data_c[i][j]:
-                        ang = data_c[i][j]["aligned_angle"]
-                        dt = get_D_matrix_lambda(ang, j.J, j.spins, j.spins)
-                        amp_d.append(tf.stop_gradient(dt))
-                        idx = [base_map[j], base_map[j].upper()]
-                        indices.append(idx)
-                        final_indices = final_indices.replace(*idx)
-        idxs = []
-        for i in indices:
-            tmp = "".join(iter_idx + i)
-            idxs.append(tmp)
-        idx = ",".join(idxs)
-        idx_s = "{}->{}".format(idx, final_indices)
-        # ret = amp * tf.reshape(rs, [-1] + [1] * len(self.amp_shape()))
-        # print(idx_s)#, amp_d)
-        # print(idx_s, [tf.shape(d).numpy() for d in amp_d], base_map)
-        try:
-            ret = einsum(idx_s, *amp_d)
-        except:
-            ret = tf.einsum(idx_s, *amp_d)
+                indices.append(i.amp_index(base_map))
+                amp_d.append(i.get_amp(data_c[i], data_p, all_data=all_data))
+
+            if self.need_amp_particle:
+                rs = self.get_amp_particle(data_p, data_c, all_data=all_data)
+
+                total = self.get_cp_amp_total(
+                    charge=all_data.get("charge_conjugation", 1)
+                )
+                if rs is not None:
+                    total = total * tf.cast(rs, total.dtype)
+                # print(total)*self.get_amp_total()
+                amp_d.append(total)
+                indices.append([])
+
+            if self.aligned:
+                for i in self:
+                    for j in i.outs:
+                        if j.J != 0 and "aligned_angle" in data_c[i][j]:
+                            ang = data_c[i][j]["aligned_angle"]
+                            dt = get_D_matrix_lambda(ang, j.J, j.spins, j.spins)
+                            amp_d.append(tf.stop_gradient(dt))
+                            idx = [base_map[j], base_map[j].upper()]
+                            indices.append(idx)
+                            final_indices = final_indices.replace(*idx)
+            idxs = []
+            for i in indices:
+                tmp = "".join(iter_idx + i)
+                idxs.append(tmp)
+            idx = ",".join(idxs)
+            idx_s = "{}->{}".format(idx, final_indices)
+            # ret = amp * tf.reshape(rs, [-1] + [1] * len(self.amp_shape()))
+            # print(idx_s)#, amp_d)
+            # print(idx_s, [tf.shape(d).numpy() for d in amp_d], base_map)
+            try:
+                ret = einsum(idx_s, *amp_d)
+            except:
+                ret = tf.einsum(idx_s, *amp_d)
         # print(self, ret[0])
         # exit()
         # ret = einsum(idx_s, *amp_d)
@@ -1168,7 +1178,7 @@ class DecayChain(AmpDecayChain):
 
     @tf.function
     def get_amp_particle(self, data_p, data_c, all_data=None):
-        # print("Retracing get amp particle", self)
+        print("Retracing get amp particle", self)
         with tf.name_scope("get_amp_particle") as scope:
             amp_p = []
             if not self.inner:
@@ -1320,38 +1330,40 @@ class DecayGroup(BaseDecayGroup, AmpBase):
                 )
                 # print(decay_chain, amp[:10])
 
+    @tf.function(jit_compile=True)
     def get_amp(self, data):
         """
         calculate the amplitude as complex number
         """
-        data_particle = data["particle"]
-        data_decay = data["decay"]
+        with tf.name_scope("DecayGroup_get_amp") as scope:
+            data_particle = data["particle"]
+            data_decay = data["decay"]
 
-        used_chains = tuple([self.chains[i] for i in self.chains_idx])
-        chain_maps = self.get_chains_map(used_chains)
-        base_map = self.get_base_map()
-        ret = []
-        for chains in chain_maps:
-            for decay_chain in chains:
-                chain_topo = decay_chain.standard_topology()
-                found = False
-                for i in data_decay.keys():
-                    if i == chain_topo:
-                        data_decay_i = data_decay[i]
-                        found = True
-                        break
-                if not found:
-                    raise KeyError("not found {}".format(chain_topo))
-                data_c = rename_data_dict(data_decay_i, chains[decay_chain])
-                data_p = rename_data_dict(data_particle, chains[decay_chain])
-                # print("$$$$$",data_c)
-                # print("$$$$$",data_p)
-                amp = decay_chain.get_amp(
-                    data_c, data_p, base_map=base_map, all_data=data
-                )
-                ret.append(amp)
-                # print(decay_chain, amp[:10])
-        ret = tf.reduce_sum(ret, axis=0)
+            used_chains = tuple([self.chains[i] for i in self.chains_idx])
+            chain_maps = self.get_chains_map(used_chains)
+            base_map = self.get_base_map()
+            ret = []
+            for chains in chain_maps:
+                for decay_chain in chains:
+                    chain_topo = decay_chain.standard_topology()
+                    found = False
+                    for i in data_decay.keys():
+                        if i == chain_topo:
+                            data_decay_i = data_decay[i]
+                            found = True
+                            break
+                    if not found:
+                        raise KeyError("not found {}".format(chain_topo))
+                    data_c = rename_data_dict(data_decay_i, chains[decay_chain])
+                    data_p = rename_data_dict(data_particle, chains[decay_chain])
+                    # print("$$$$$",data_c)
+                    # print("$$$$$",data_p)
+                    amp = decay_chain.get_amp(
+                        data_c, data_p, base_map=base_map, all_data=data
+                    )
+                    ret.append(amp)
+                    # print(decay_chain, amp[:10])
+            ret = tf.reduce_sum(ret, axis=0)
         return ret
 
     def get_m_dep(self, data):
@@ -1712,6 +1724,7 @@ class AmplitudeModel(object):
     def trainable_variables(self):
         return self.vm.trainable_variables
 
+    # @tf.function(jit_compile=True)
     def __call__(self, data, cached=False):
         if id(data) in self.f_data:
             if not self.decay_group.not_full:
