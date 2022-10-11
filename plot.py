@@ -270,8 +270,10 @@ class PipiKmatrix(HelicityDecay):
         self.n_ls = len(self.get_ls_list())
         print(self.n_ls)
         self.n_poles = 5
-        self.production_poles = [0, 1, 2, 3, 4]
+        self.production_poles = [0, 1]
         self.NR_production_channels = [0, 1, 2]
+        # self.production_poles = [0, 1, 2, 3, 4]
+        # self.NR_production_channels = [0, 1, 2]
 
         assert(kwargs["pipi_system"] in self.outs[0].name or kwargs["pipi_system"] in self.outs[1].name)
         self.pipi_system = self.outs[0] if kwargs["pipi_system"] in self.outs[0].name else self.outs[1]
