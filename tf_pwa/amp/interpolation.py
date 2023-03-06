@@ -437,6 +437,65 @@ class Interp1DSplineIdx(InterpolationParticle):
         ret_i = do_spline_hmatrix(self.h_matrix, p_i, m, idx)
         return tf.complex(ret_r, ret_i)
 
+@register_particle("spline_c_cached_idx")
+class Interp1DSplineCachedIdx(InterpolationParticle):
+    """Spline function in index way"""
+
+    def __init__(self, *args, **kwargs):
+        self.bc_type = "not-a-knot"
+        super().__init__(*args, **kwargs)
+        assert self.interp_N > 2, "points need large than 2"
+        self.h_matrix = None
+
+    def init_params(self):
+        print("Calling init params for spline interpolation!")
+        super(Interp1DSplineCachedIdx, self).init_params()
+        h_matrix = spline_xi_matrix(self.points, self.bc_type)
+        if self.with_bound:
+            self.h_matrix = tf.convert_to_tensor(h_matrix.transpose((1, 0, 2)))
+        else:
+            self.h_matrix = tf.convert_to_tensor(
+                h_matrix.transpose((1, 0, 2))[..., 1:-1]
+            )
+        a_matrix, b_matrix, c_matrix, d_matrix = tf.unstack(self.h_matrix, axis=0)
+        self.matrices = [d_matrix, c_matrix, b_matrix, a_matrix]
+        self.matrices = [ tf.convert_to_tensor(matrix) for matrix in self.matrices ]
+
+    def init_data(self, data, data_c, **kwargs):
+        m = data["m"]
+        idx = self.get_bin_index(m)
+        idx = tf.clip_by_value(idx, 0, self.h_matrix.shape[1] - 1)
+        kwargs["all_data"][f"{self.name}_spline_idx"] = tf.convert_to_tensor(idx)
+
+    @tf.function
+    def get_amp(self, data, *args, **kwargs):
+        indices = kwargs["all_data"][f"{self.name}_spline_idx"]
+        m = data["m"]
+
+        p = self.point_value()
+        p = tf.reshape(p, [-1, 1])
+        p_r = tf.math.real(p)
+        p_i = tf.math.imag(p)
+
+        # coefficients for each bin
+        real_coefficients = [ tf.squeeze(tf.matmul(matrix, tf.reshape(p_r, [-1, 1]))) for matrix in self.matrices ]
+        imag_coefficients = [ tf.squeeze(tf.matmul(matrix, tf.reshape(p_i, [-1, 1]))) for matrix in self.matrices ]
+
+        # coefficients for each entry
+        real_coefficients = [ tf.gather(coefficient, indices) for coefficient in real_coefficients ]
+        imag_coefficients = [ tf.gather(coefficient, indices) for coefficient in imag_coefficients ]
+
+        return tf.complex(tf.math.polyval(real_coefficients, m), tf.math.polyval(imag_coefficients, m))
+
+    def interp(self, m):
+        idx = self.get_bin_index(m)
+        idx = tf.clip_by_value(idx, 0, self.h_matrix.shape[1] - 1)
+        ret_r = do_spline_hmatrix(self.h_matrix, p_r, m, idx)
+        ret_i = do_spline_hmatrix(self.h_matrix, p_i, m, idx)
+        return tf.complex(ret_r, ret_i)
+
+def spline_polynomial(h_matrix, y, m, idx):
+    ai, bi, ci, di = tf.unstack(tf.squeeze)
 
 def do_spline_hmatrix(h_matrix, y, m, idx):
     ai, bi, ci, di = tf.unstack(tf.reduce_sum(h_matrix * y, axis=-1), axis=0)

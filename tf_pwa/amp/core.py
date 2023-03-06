@@ -1178,7 +1178,7 @@ class DecayChain(AmpDecayChain):
 
     @tf.function
     def get_amp_particle(self, data_p, data_c, all_data=None):
-        print("Retracing get amp particle", self)
+        # print("Retracing get amp particle", self)
         with tf.name_scope("get_amp_particle") as scope:
             amp_p = []
             if not self.inner:
@@ -1331,7 +1331,7 @@ class DecayGroup(BaseDecayGroup, AmpBase):
                 # print(decay_chain, amp[:10])
 
     @tf.function(jit_compile=True)
-    def get_amp(self, data):
+    def get_amp(self, data, used_res):
         """
         calculate the amplitude as complex number
         """
@@ -1444,12 +1444,12 @@ class DecayGroup(BaseDecayGroup, AmpBase):
         return factor
 
     def get_amp2(self, data):
-        amp = self.get_amp(data)
+        amp = self.get_amp(data, self.chains_idx)
         id_swap = data.get("id_swap", {})
         for k, v in id_swap.items():
             new_data = {**data, **v}
             factor = self.get_swap_factor(k)
-            amp_swap = factor * self.get_amp(new_data)
+            amp_swap = factor * self.get_amp(new_data, self.chains_idx)
             # print(k, amp, amp_swap)
             amp = amp + amp_swap
         return amp
@@ -1480,7 +1480,7 @@ class DecayGroup(BaseDecayGroup, AmpBase):
 
         """
 
-        amp = self.get_amp(data)
+        amp = self.get_amp(data, self.chains_idx)
         amp = tf.reshape(
             amp, (amp.shape[0], amp.shape[1], -1)
         )  # (i, la, lb lc ld ...)

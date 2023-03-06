@@ -176,7 +176,7 @@ class ParticleBW(Particle):
 
     """
 
-    def get_amp(self, data, _data_c=None, **kwargs):
+    def get_amp(self, data, data_c=None, **kwargs):
         mass = self.get_mass()
         width = self.get_width()
         ret = BW(data["m"], mass, width)
@@ -318,7 +318,7 @@ class ParticleOne(Particle):
         pass
 
     @tf.function
-    def get_amp(self, data, _data_c=None, **kwargs):
+    def get_amp(self, data, data_c=None, **kwargs):
         # Need to optimise this to just return single entry vector
         mass = data["m"]
         zeros = tf.constant(0., dtype=mass.dtype)
@@ -340,7 +340,7 @@ class ParticleExp(Particle):
     def init_params(self):
         self.a = self.add_var("a")
 
-    def get_amp(self, data, _data_c=None, **kwargs):
+    def get_amp(self, data, data_c=None, **kwargs):
         mass = data["m"]
         zeros = tf.zeros_like(mass)
         a = tf.abs(self.a())
@@ -359,7 +359,7 @@ class ParticleExp(Particle):
         self.a = self.add_var("a")
         self.b = self.add_var("b")
 
-    def get_amp(self, data, _data_c=None, **kwargs):
+    def get_amp(self, data, data_c=None, **kwargs):
         mass = data["m"]
         zeros = tf.zeros_like(mass)
         a = tf.abs(self.a())

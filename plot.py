@@ -6,6 +6,7 @@ import tensorflow as tf
 import scipy.interpolate as interpolate
 import scipy.interpolate, scipy.linalg
 import matplotlib.pyplot as plt
+from tf_pwa.experimental import extra_amp, extra_data
 
 from tf_pwa.histogram import Hist1D, interp_hist
 from tf_pwa.breit_wigner import BW, Gamma
@@ -58,6 +59,7 @@ class BW_SPW(Particle):
         with tf.name_scope("BW_SPW") as scope:
             m = data["m"]
             mass = tf.cast(self.get_mass(), m.dtype)
+            width = tf.cast(self.get_width(), m.dtype)
 
             # bin_indices = tf.histogram_fixed_width_bins(m, self.range, self.nbins)
             # coefficients = [tf.gather(self.bin_coefficients[i], bin_indices) for i in range(4)]
@@ -74,7 +76,44 @@ class BW_SPW(Particle):
             # gamma = width * running_width / normalisation
 
             # Use the mass dependent width to calculate the Breit-Wigner amplitude
-            return BW(m, mass, kwargs["all_data"]["BW_SPW_width"])
+            return BW(m, mass, width * kwargs["all_data"]["BW_SPW_width"])
+
+# BW resonance where the total width is the sum of its partial widths
+# The widths is given as a x : y in a npy file, which is used in a cubic spline interpolation
+# Do not multiply the width of the resonance into the value of y, this can be treated as a floating parameter in the fit
+@register_particle("BW_SPW_Exp")
+class BW_SPW_Exp(Particle):
+    def __init__(self, *args, **kwargs):
+        super(BW_SPW_Exp, self).__init__(*args, **kwargs)
+        self.cubic_spline = self.init_interpolation(kwargs["interpolate_knots_file"])
+        self.radius = self.add_var("radius", value=0.1, fix=False)
+
+    def init_interpolation(self, filepath):
+        xy = np.load(filepath)
+        # x is the location of knots
+        # y the value of the function at each knot
+        x = xy[0]
+        y = xy[1]
+
+        # Get the coefficient of the splines
+        cubic_spline = interpolate.CubicSpline(x, y)
+        return cubic_spline
+
+    def init_data(self, data, data_c, **kwargs):
+        m = data["m"].numpy()
+        running_width = self.cubic_spline(m)
+        kwargs["all_data"]["BW_SPW_Exp_width"] = tf.convert_to_tensor(running_width)
+
+    @tf.function
+    def get_amp(self, data, data_c, **kwargs):
+        PI_MASS = 0.13957
+        K_MASS = 0.493677
+        with tf.name_scope("BW_SPW_Exp") as scope:
+            m = data["m"]
+            mass = tf.cast(self.get_mass(), m.dtype)
+            width = kwargs["all_data"]["BW_SPW_Exp_width"] * tf.exp(-tf.square(self.radius() * (m - 2 * PI_MASS - K_MASS)) / 2)
+
+            return BW(m, mass, width)
 
 # BW resonance for the f_0_980
 # The widths are functions of pi and K masses
@@ -270,10 +309,8 @@ class PipiKmatrix(HelicityDecay):
         self.n_ls = len(self.get_ls_list())
         print(self.n_ls)
         self.n_poles = 5
-        self.production_poles = [0, 1]
-        self.NR_production_channels = [0, 1, 2]
-        # self.production_poles = [0, 1, 2, 3, 4]
-        # self.NR_production_channels = [0, 1, 2]
+        self.production_poles = kwargs["production_poles"]
+        self.NR_production_channels = kwargs["NR_production_channels"]
 
         assert(kwargs["pipi_system"] in self.outs[0].name or kwargs["pipi_system"] in self.outs[1].name)
         self.pipi_system = self.outs[0] if kwargs["pipi_system"] in self.outs[0].name else self.outs[1]
@@ -603,6 +640,30 @@ class KpiKmatrix(HelicityDecay):
                                              "Kpi_NR" : tf.expand_dims(cached_Kpi_NR, axis=-1),
                                              "Ketap_NR" : tf.expand_dims(cached_Ketap_NR, axis=-1),
                                              "I3" : tf.expand_dims(cached_I3, axis=-1)}
+
+# Polynomial lineshape
+@register_particle("PolyLineshape")
+class PolyLineshape(Particle):
+    def __init__(self, *args, **kwargs):
+        super(PolyLineshape, self).__init__(*args, **kwargs)
+        self.n_degrees = int(kwargs["n_degrees"])
+
+    def init_params(self):
+        self.coefficients = [self.add_var(f"poly{i+1}", value=0., fix=False) for i in range(self.n_degrees)]
+        for coefficient in self.coefficients:
+            coefficient.set_bound((-1, 1))
+
+    @tf.function
+    def get_amp(self, data, data_c, **kwargs):
+        with tf.name_scope("BW_Kst_892_plus") as scope:
+            m = data["m"]
+            # The constant is set to 1.0 since this is absorbed by DecayChain amplitude
+            polyval_coefficients = [coefficient() for coefficient in reversed(self.coefficients)] + [1.0]
+            polyval_coefficients = [tf.cast(coefficient, dtype=m.dtype) for coefficient in polyval_coefficients]
+            zeros = tf.constant(0., dtype=m.dtype)
+
+            return tf.complex(tf.math.polyval(polyval_coefficients, m), zeros)
+
 
 def json_print(dic):
     """print parameters as json"""
@@ -1051,6 +1112,8 @@ def plot_resonance(
     amp = self.get_amplitude()
     phsp = phsp if phsp is not None else self.get_phsp_plot()
     self._Ngroup = len(phsp)
+    amp = self.get_amplitude()
+    amp.init_data(phsp[0])
 
     ## check that group labels and mothers are not repeated
     groups = self.plot_params.config["groups"]
@@ -1151,22 +1214,26 @@ def plot_resonance(
             **kwargs,
         )
 
-parser = argparse.ArgumentParser(description="Script to plot invariant mass")
-parser.add_argument("config", type=str, help="Input config file.")
-parser.add_argument("prefix", type=str, help="Output prefix.")
-parser.add_argument("--single-resonance", action="store_true")
-parser.add_argument("--save_root", action="store_true")
-arguments = parser.parse_args()
+# def main():
+    
 
-import matplotlib.pyplot as plt
-plt.rcParams["xtick.minor.visible"] = True
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Script to plot invariant mass")
+    parser.add_argument("config", type=str, help="Input config file.")
+    parser.add_argument("prefix", type=str, help="Output prefix.")
+    parser.add_argument("--single-resonance", action="store_true")
+    parser.add_argument("--save_root", action="store_true")
+    arguments = parser.parse_args()
 
-os.makedirs(arguments.prefix, exist_ok=True)
-config = ConfigLoader(arguments.config)
-config.set_params("final_params.json")
+    import matplotlib.pyplot as plt
+    plt.rcParams["xtick.minor.visible"] = True
 
-tf.config.run_functions_eagerly(True)
-if arguments.single_resonance:
-    config.plot_resonance(plot_pull=True, prefix=arguments.prefix)
-else:
-    config.plot_grouped_partial_waves(plot_pull=True, prefix=arguments.prefix, save_root=arguments.save_root)
+    os.makedirs(arguments.prefix, exist_ok=True)
+    config = ConfigLoader(arguments.config)
+    config.set_params("final_params.json")
+
+    tf.config.run_functions_eagerly(True)
+    if arguments.single_resonance:
+        config.plot_resonance(plot_pull=True, prefix=arguments.prefix)
+    else:
+        config.plot_grouped_partial_waves(plot_pull=True, prefix=arguments.prefix, save_root=arguments.save_root)

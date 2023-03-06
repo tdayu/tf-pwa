@@ -312,6 +312,16 @@ def fit_scipy(
             except LargeNumberError:
                 return except_result(fcn, x0.shape[0])
 
+        if s.success or not improve:
+            with open("fit_log.txt", "w") as file:
+                file.write(f"fun: {s.fun}\n")
+                file.write(f"message: {s.message}\n")
+                file.write(f"nfev: {s.nfev}\n")
+                file.write(f"nit: {s.nit}\n")
+                file.write(f"njev: {s.njev}\n")
+                file.write(f"status: {s.status}\n")
+                file.write(f"success: {s.success}\n")
+
         while improve and not s.success:
             min_nll = s.fun
             maxiter -= s.nit
@@ -412,6 +422,7 @@ def fit_scipy(
                 file.write(string + "\n")
             file.close()
     params = fcn.get_params()  # vm.get_all_dic()
+
     return FitResult(
         params, fcn, min_nll, ndf=ndf, success=success, hess_inv=hess_inv
     )

@@ -362,6 +362,38 @@ class BaseModel(object):
             ndata / int_mc * i for i in g_int_mc
         ]
 
+    def nll_no_grad(self, data, mcdata, batch=65000):
+        weight = data.get("weight", tf.ones((data_shape(data),)))
+        weight_rw = tf.reduce_sum(
+            tf.reshape(weight, (-1, self.resolution_size)), axis=-1
+        )
+        alpha = tf.reduce_sum(weight_rw) / tf.reduce_sum(weight_rw**2)
+        weight = alpha * weight
+        assert (
+            batch % self.resolution_size == 0
+        ), "batch size should be the multiple of resolution_size"
+        ln_data = sum_nll(
+            self.signal,
+            split_generator(data, batch),
+            self.signal.trainable_variables,
+            weight=split_generator(weight, batch),
+            trans=clip_log,
+            resolution_size=self.resolution_size,
+        )
+        mc_weight = mcdata.get("weight", tf.ones((data_shape(mcdata),)))
+        mc_weight = mc_weight / tf.reduce_sum(mc_weight)
+        int_mc = sum_nll(
+            self.signal,
+            split_generator(mcdata, batch),
+            self.signal.trainable_variables,
+            weight=data_split(mc_weight, batch),
+        )
+
+        sw = tf.cast(tf.reduce_sum(weight), ln_data.dtype)
+
+        nll = -ln_data + sw * tf.math.log(int_mc)
+        return nll
+
     def nll_grad(self, data, mcdata, batch=65000):
         weight = data.get("weight", tf.ones((data_shape(data),)))
         weight_rw = tf.reduce_sum(
