@@ -310,14 +310,17 @@ def plot_chi2(output_path, xlabel, ylabel,
 
     histogram.FillN(weights.shape[0], x_data.data, y_data.data, weights.data)
     model_histogram.FillN(weights_phase_space.shape[0], x_phase_space.data, y_phase_space.data, weights_phase_space.data)
-    histogram.Add(model_histogram, -1)
+    scale = np.sum(weights_data) / np.sum(weights_phase_space)
+
     chi2 = 0
     for i in range(1, histogram.GetNumberOfBins()+1):
-        # chi2 = np.sign(histogram.GetBinContent(i))*histogram.GetBinContent(i)*histogram.GetBinContent(i)/(histogram.GetBinError(i)*histogram.GetBinError(i))
-        content = histogram.GetBinContent(i)/histogram.GetBinError(i)
-        chi2 += content * content
-        histogram.SetBinContent(i, max(min(content, 5), -5))
-        # histogram.SetBinContent(i, min(chi2, 10))
+        model_this_bin = scale * model_histogram.GetBinContent(i)
+        model_this_bin_error = scale * model_histogram.GetBinError(i)
+        delta = histogram.GetBinContent(i) - model_this_bin
+        error = np.sqrt( np.square( model_this_bin_error ) + np.square( histogram.GetBinError( i ) ) )
+        this_bin_chi2 = np.sign(delta) * np.square( delta / error )
+        chi2 += np.abs(this_bin_chi2)
+        histogram.SetBinContent( i, max( min( this_bin_chi2, 5 ), -5 ) )
 
     histogram.SetMaximum(5)
     histogram.SetMinimum(-5)

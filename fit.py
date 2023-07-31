@@ -837,6 +837,9 @@ def main():
     parser.add_argument(
         "--no-GPU", action="store_false", default=True, dest="has_gpu"
     )
+    parser.add_argument(
+        "--device", default=0, type=int
+    )
     parser.add_argument("-c", "--config", default="config.yml", dest="config")
     parser.add_argument(
         "-i", "--init_params", default="init_params.json", dest="init"
@@ -858,7 +861,7 @@ def main():
     )
     results = parser.parse_args()
     if results.has_gpu:
-        devices = "/device:GPU:0"
+        devices = f"/device:GPU:{results.device}"
     else:
         devices = "/device:CPU:0"
     with tf.device(devices):
