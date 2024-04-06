@@ -252,7 +252,7 @@ class PhaseSpaceGenerator(object):
         new_sample = [self.m_mass[0]] + [i[cut] for i in sample]
         new_sample.append(self.m0)
         weights = np.ones(N * n_mass_var)
-        for i in range(n_mass_var):
+        for i in range(n_mass_var + 1):
             weights = weights * get_p(
                 new_sample[i + 1], new_sample[i], self.m_mass[i + 1]
             )
