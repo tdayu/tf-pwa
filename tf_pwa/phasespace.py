@@ -241,7 +241,7 @@ class PhaseSpaceGenerator(object):
         m_max = self.m0 - self.m_mass[-1]
         n_mass_var = len(self.m_mass) - 2
         sample = []
-        cut = np.ones(N * n_mass_var, dtype=np.bool)
+        cut = np.ones(N * n_mass_var, dtype=np.bool_)
         for i in range(n_mass_var):
             m_min += self.m_mass[i + 1]
             mass_volum *= m_max - m_min
@@ -424,10 +424,9 @@ def phsp_volume(m0, mi, **kwargs):
     <tf.Tensor: shape=(), dtype=float64, numpy=0.039...>
     >>> phsp_volume(3.0, [0.1, 0.1], return_error=True)
     (<tf.Tensor: shape=(), dtype=float64, numpy=0.039...>, array(0.))
-    >>> phsp_volume(3.0, [0.1, 0.2, 0.3])
-    <tf.Tensor: shape=(), dtype=float64, numpy=0.0011...>
-    >>> phsp_volume(3.0, [0.1, 0.2, 0.3], return_error=True)
-    (<tf.Tensor: shape=(), dtype=float64, numpy=0.0011...>, <tf.Tensor: shape=(), dtype=float64, numpy=1.3...e-05>)
+    >>> value = phsp_volume(3.0, [0.1, 0.2, 0.3])
+    >>> value, err = phsp_volume(3.0, [0.1, 0.2, 0.3], return_error=True)
+    >>> assert abs(value - 0.0009592187960824385) < err * 3
 
     """
 
