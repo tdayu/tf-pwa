@@ -220,6 +220,50 @@ class PhaseSpaceGenerator(object):
         self.m_wtMax *= (-ret.fun) * 1.001
         return self.m_wtMax
 
+    def volume(self, N=10000, return_error=False):
+        r"""
+        The value for
+
+        .. math::
+            \int 1 d\Phi = \frac{1}{2(2\pi)^{2n-3}M} \int |p_{1}| \prod_{i=1}^{n-2}|p_{i+1}^{*}| d M_i
+
+        """
+
+        if len(self.m_mass) == 2:
+            p1 = get_p(self.m0, self.m_mass[0], self.m_mass[1])
+            ret = p1 / (self.m0 * np.pi * 4)
+            if return_error:
+                return ret, np.array(0.0)
+            return ret
+
+        mass_volum = 1
+        m_min = self.m_mass[0]
+        m_max = self.m0 - self.m_mass[-1]
+        n_mass_var = len(self.m_mass) - 2
+        sample = []
+        cut = np.ones(N * n_mass_var, dtype=np.bool_)
+        for i in range(n_mass_var):
+            m_min += self.m_mass[i + 1]
+            mass_volum *= m_max - m_min
+            rnd = np.random.random(N * n_mass_var) * (m_max - m_min) + m_min
+            if len(sample) > 0:
+                cut = cut & (rnd > (sample[-1] + self.m_mass[i + 1]))
+            sample.append(rnd)
+        new_sample = [self.m_mass[0]] + [i[cut] for i in sample]
+        new_sample.append(self.m0)
+        weights = np.ones(N * n_mass_var)
+        for i in range(n_mass_var + 1):
+            weights = weights * get_p(
+                new_sample[i + 1], new_sample[i], self.m_mass[i + 1]
+            )
+        num = tf.reduce_sum(weights) / N * n_mass_var
+        err = tf.sqrt(tf.reduce_sum(weights**2)) / N * n_mass_var
+        dom = mass_volum / (2 * (2 * np.pi) ** (2 * n_mass_var + 1) * self.m0)
+        if return_error:
+            err = tf.sqrt(tf.reduce_sum(weights**2)) / N * n_mass_var
+            return num * dom, err * dom
+        return num * dom
+
     def set_decay(self, m0, mass):
         r"""set decay mass, calculate max weight
 
@@ -366,3 +410,26 @@ def generate_phsp(m0, mi, N=1000):
 
     """
     return ChainGenerator(m0, mi).generate(N)
+
+
+def phsp_volume(m0, mi, **kwargs):
+    r"""
+    Calculate the integration value for
+
+    .. math::
+            \int 1 d\Phi = \frac{1}{2(2\pi)^{2n-3}M} \int |p_{1}| \prod_{i=1}^{n-2}|p_{i+1}^{*}| d M_i
+
+
+    >>> phsp_volume(3.0, [0.1, 0.1])
+    <tf.Tensor: shape=(), dtype=float64, numpy=0.039...>
+    >>> phsp_volume(3.0, [0.1, 0.1], return_error=True)
+    (<tf.Tensor: shape=(), dtype=float64, numpy=0.039...>, array(0.))
+    >>> value = phsp_volume(3.0, [0.1, 0.2, 0.3])
+    >>> value, err = phsp_volume(3.0, [0.1, 0.2, 0.3], return_error=True)
+    >>> assert abs(value - 0.0009592187960824385) < err * 3
+
+    """
+
+    phsp = PhaseSpaceGenerator(m0, mi)
+    ret = phsp.volume(**kwargs)
+    return ret
