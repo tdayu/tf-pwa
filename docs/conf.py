@@ -172,10 +172,12 @@ Available Decay Model
             name_list = model_params[v]["name"]
             name = ", ".join(name_list)
             doc_i = model_params[v]["doc"]
-            decay_model_doc += (
+            decay_model_head = (
                 f"\n{idx+1}. :code:`{name}`"
-                f" (`~{v.__module__}.{v.__qualname__}`)\n\n"
+                f" (`~{v.__module__}.{v.__qualname__}`)\n"
             )
+            decay_model_doc += decay_model_head
+            decay_model_doc += "^" * (len(decay_model_head) - 2) + "\n\n"
             idx += 1
             decay_model_doc += add_indent(doc_i) + "\n\n"
 
