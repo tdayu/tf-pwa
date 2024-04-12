@@ -307,7 +307,7 @@ def main():
     decay_chain = config.get_decay(False).get_decay_chain(results.particle)
 
     for name in ["data_rec", "bg_rec"]:
-        data = config.get_data("deta_rec")
+        data = config.get_data(name)
         if data is None:
             continue
         for i, toy in enumerate(data):
@@ -321,11 +321,11 @@ def main():
                 config, decay_chain, toy, smear_method=results.method
             )
             w = toy.get_weight() * w
-            save_name = config.data.dic["data"]
+            save_name = config.data.dic[name[:-4]]
             if isinstance(save_name, list):
                 save_name = save_name[i]
             np.savetxt(save_name, np.stack(p4).reshape((-1, 4)))
-            save_name = config.data.dic["data_weight"]
+            save_name = config.data.dic[name[:-4] + "_weight"]
             if isinstance(save_name, list):
                 save_name = save_name[i]
             np.savetxt(save_name, np.transpose(w).reshape((-1,)))

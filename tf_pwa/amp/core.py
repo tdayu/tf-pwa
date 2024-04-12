@@ -491,6 +491,14 @@ class Particle(BaseParticle, AmpBase):
                 self.bw_l = min(decay.get_l_list())
             return BWR_dom(m, m0, g0, self.bw_l, m1, m2)
 
+    def pole_function(self, sheet=0, modules="numpy"):
+        from tf_pwa.formula import create_numpy_function
+
+        var = self.get_sympy_var()
+        f = self.get_sympy_dom(*var, sheet=sheet)
+        val = self.get_num_var()
+        return create_numpy_function(f, var[1:], val, var[0], modules=modules)
+
 
 @regist_particle("x")
 class ParticleX(Particle):
