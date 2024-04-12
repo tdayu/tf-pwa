@@ -415,15 +415,38 @@ def plot_particle_model(
     return [ax0, ax1, ax2, ax3]
 
 
+def plot_pole_function(
+    model_name, params={}, plot_params={}, axis=None, **kwargs
+):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    config = create_test_config(model_name, params, plot_params)
+    p = config.get_decay().get_particle("R_BC")
+    f = p.pole_function()
+    mx = np.linspace(0.2, 0.9 - 1e-12, 2000)
+    my = np.linspace(-0.1, 0.1, 2000)
+    a = np.abs(1 / f(mx + 1.0j * my[:, None])) ** 2
+    if axis is None:
+        axis = plt.gca()
+    axis.contour(mx, my, a, linewidths=3)
+    axis.set_xlabel("Re$\\sqrt{s}$")
+    axis.set_ylabel("Im$\\sqrt{s}$")
+    return axis
+
+
 def search_interval(px, cl=0.6826894921370859, xrange=(0, 1)):
     """
     Search interval (a, b) that satisfly :math:`p(a)=p(b)` and
+
     .. math::
         \\frac{\\int_{a}^{b} p(x) dx}{\\int_{x_{min]}^{x_{max}} p(x) dx} = cl
+
     >>> x = np.linspace(-10, 10, 10000)
     >>> a, b = search_interval(np.exp(-x**2/2), xrange=(-10, 10))
     >>> assert abs(a+1) < 0.01
     >>> assert abs(b-1) < 0.01
+
     """
     n = px.shape[0]
     px = px / np.sum(px)

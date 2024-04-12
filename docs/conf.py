@@ -121,10 +121,12 @@ Available Resonances Model
         name_list = model_params[v]["name"]
         name = ", ".join(name_list)
         doc_i = model_params[v]["doc"]
-        particle_model_doc += (
+        particle_model_head = (
             f"\n{idx+1}. :code:`{name}`"
-            f" (`~{v.__module__}.{v.__qualname__}`)\n\n"
+            f" (`~{v.__module__}.{v.__qualname__}`)\n"
         )
+        particle_model_doc += particle_model_head
+        particle_model_doc += "^" * (len(particle_model_head) - 2) + "\n\n"
         idx += 1
         particle_model_doc += add_indent(doc_i) + "\n\n"
 

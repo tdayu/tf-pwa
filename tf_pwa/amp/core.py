@@ -353,12 +353,23 @@ class Particle(BaseParticle, AmpBase):
         .. math::
             R(m) = \\frac{1}{m_0^2 - m^2 - i m_0 \\Gamma(m)}
 
+    Argand diagram
+
     .. plot::
 
         >>> import matplotlib.pyplot as plt
         >>> plt.clf()
         >>> from tf_pwa.utils import plot_particle_model
         >>> axis = plot_particle_model("BWR")
+
+    Pole position
+
+    .. plot::
+
+        >>> import matplotlib.pyplot as plt
+        >>> plt.clf()
+        >>> from tf_pwa.utils import plot_pole_function
+        >>> axis = plot_pole_function("BWR")
 
     """
 
