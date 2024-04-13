@@ -452,3 +452,18 @@ def test_split_ls2():
     data = cal_angle_from_momentum(p, dg)
     amp1 = amp(data)
     a(np.array([5.9, 6.0, 6.1]))
+
+
+def test_gls_reduce_h0():
+    a = get_particle("a", J=1, P=1, mass=6.0, width=0.02)
+    b = get_particle("b", J=1, P=-1, mass=0.0)
+    c = get_particle("c", J=0, P=-1, mass=0.1)
+    d = get_particle("d", J=0, P=-1)
+    t = get_particle("t", J=0, P=-1)
+    dec = get_decay(a, [b, c], model="gls_reduce_h0")
+    dec2 = get_decay(t, [a, d], p_break=True)
+    dg = DecayGroup([DecayChain([dec, dec2])])
+    amp = AmplitudeModel(dg)
+    p = dict(zip([b, c, d], test_data[0]))
+    data = cal_angle_from_momentum(p, dg)
+    amp1 = amp(data)
