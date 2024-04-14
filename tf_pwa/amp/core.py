@@ -353,12 +353,23 @@ class Particle(BaseParticle, AmpBase):
         .. math::
             R(m) = \\frac{1}{m_0^2 - m^2 - i m_0 \\Gamma(m)}
 
+    Argand diagram
+
     .. plot::
 
         >>> import matplotlib.pyplot as plt
         >>> plt.clf()
         >>> from tf_pwa.utils import plot_particle_model
         >>> axis = plot_particle_model("BWR")
+
+    Pole position
+
+    .. plot::
+
+        >>> import matplotlib.pyplot as plt
+        >>> plt.clf()
+        >>> from tf_pwa.utils import plot_pole_function
+        >>> axis = plot_pole_function("BWR")
 
     """
 
@@ -490,6 +501,14 @@ class Particle(BaseParticle, AmpBase):
                 decay = self.decay[0]
                 self.bw_l = min(decay.get_l_list())
             return BWR_dom(m, m0, g0, self.bw_l, m1, m2)
+
+    def pole_function(self, sheet=0, modules="numpy"):
+        from tf_pwa.formula import create_numpy_function
+
+        var = self.get_sympy_var()
+        f = self.get_sympy_dom(*var, sheet=sheet)
+        val = self.get_num_var()
+        return create_numpy_function(f, var[1:], val, var[0], modules=modules)
 
 
 @regist_particle("x")

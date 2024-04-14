@@ -413,3 +413,79 @@ def plot_particle_model(
         ax0.scatter(special_points, np.imag(at))
     ax0.set_xlabel("mass")
     return [ax0, ax1, ax2, ax3]
+
+
+def plot_pole_function(
+    model_name, params={}, plot_params={}, axis=None, **kwargs
+):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    config = create_test_config(model_name, params, plot_params)
+    p = config.get_decay().get_particle("R_BC")
+    f = p.pole_function()
+    mx = np.linspace(0.2, 0.9 - 1e-12, 2000)
+    my = np.linspace(-0.1, 0.1, 2000)
+    a = np.abs(1 / f(mx + 1.0j * my[:, None])) ** 2
+    if axis is None:
+        axis = plt.gca()
+    axis.contour(mx, my, a, linewidths=3)
+    axis.set_xlabel("Re$\\sqrt{s}$")
+    axis.set_ylabel("Im$\\sqrt{s}$")
+    return axis
+
+
+def search_interval(px, cl=0.6826894921370859, xrange=(0, 1)):
+    """
+    Search interval (a, b) that satisfly :math:`p(a)=p(b)` and
+
+    .. math::
+        \\frac{\\int_{a}^{b} p(x) dx}{\\int_{x_{min]}^{x_{max}} p(x) dx} = cl
+
+    >>> x = np.linspace(-10, 10, 10000)
+    >>> a, b = search_interval(np.exp(-x**2/2), xrange=(-10, 10))
+    >>> assert abs(a+1) < 0.01
+    >>> assert abs(b-1) < 0.01
+
+    """
+    n = px.shape[0]
+    px = px / np.sum(px)
+    idx = np.argsort(px)[::-1]
+    y = px[idx]
+    f = np.cumsum(y)
+    cut = f < cl
+    inner = idx[cut]
+    left = (np.min(inner) - 1) / px.shape[0]
+    right = (np.max(inner) + 1) / px.shape[0]
+    a, b = xrange
+    return a + (b - a) * left, a + (b - a) * right
+
+
+def combine_asym_error(errs, N=10000):
+    """
+
+    combine asymmetry uncertanties using convolution
+
+    >>> a, b = combine_asym_error([[-0.4, 0.4], 0.3])
+    >>> assert abs(a+0.5) < 0.01
+    >>> assert abs(b-0.5) < 0.01
+
+    """
+    from scipy.signal import convolve
+
+    errs = [[i, i] if isinstance(i, float) else i for i in errs]
+    errs = np.abs(np.stack(errs))
+    max_range = np.max(np.sqrt(np.sum(errs**2, axis=0)))
+    xrange = -max_range * 10, max_range * 10
+
+    x = np.linspace(*xrange, N)
+
+    y = np.exp(-(x**2) / 2 / np.where(x > 0, errs[-1, 1], errs[-1, 0]) ** 2)
+    y = y / np.sum(y)
+    for i in range(errs.shape[0] - 1):
+        tmp = np.exp(
+            -(x**2) / 2 / np.where(x > 0, errs[i, 1], errs[i, 0]) ** 2
+        )
+        tmp = tmp / np.sum(tmp)
+        y = convolve(y, tmp, mode="same")
+    return search_interval(y, xrange=xrange)

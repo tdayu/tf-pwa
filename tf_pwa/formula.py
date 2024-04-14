@@ -134,3 +134,10 @@ def create_complex_root_sympy_tfop(f, var, x, x0, epsilon=1e-12, prec=50):
         return tf.complex(z[0], z[1])
 
     return _f
+
+
+def create_numpy_function(f, var, val, x, modules="numpy"):
+    f_var = _flatten(var)
+    f_val = _flatten(val)
+    f = f.subs(dict(zip(f_var, f_val)))
+    return sympy.lambdify(x, f, modules=modules)

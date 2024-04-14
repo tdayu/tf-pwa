@@ -466,6 +466,35 @@ class ParticleExpCom(Particle):
         return tf.exp(r)
 
 
+@regist_particle("poly")
+class ParticlePoly(Particle):
+    """
+    .. math::
+        R(m) = \\sum c_i (m-m_0)^{n-i}
+
+    lineshape when :math:`c_0=1, c_1=c_2=0`
+
+    .. plot::
+
+        >>> import  matplotlib.pyplot as plt
+        >>> plt.clf()
+        >>> from tf_pwa.utils import plot_particle_model
+        >>> axis = plot_particle_model("poly", params={"n_order": 2}, plot_params={"R_BC_c_1r": 0., "R_BC_c_2r": 0., "R_BC_c_1i": 0., "R_BC_c_2i": 0.})
+
+    """
+
+    def init_params(self):
+        self.n_order = getattr(self, "n_order", 3)
+        self.pi = self.add_var("c", shape=(self.n_order + 1,), is_complex=True)
+        self.pi.set_fix_idx(fix_idx=0, fix_vals=(1.0, 0.0))
+
+    def get_amp(self, data, _data_c=None, **kwargs):
+        mass = data["m"] - self.get_mass()
+        pi = list(self.pi())
+        mass = tf.complex(mass, tf.zeros_like(mass))
+        return tf.math.polyval(pi, mass)
+
+
 @regist_decay("particle-decay")
 class ParticleDecay(HelicityDecay):
     def get_ls_amp(self, data, data_p, **kwargs):
@@ -697,3 +726,70 @@ class HelicityDecayCPV(HelicityDecay):
         else:
             m_dep = g_ls
         return m_dep
+
+
+@regist_decay("gls_reduce_h0")
+class HelicityDecayReduceH0(HelicityDecay):
+    """
+    decay model that remove helicity =0 for massless particles
+    """
+
+    def init_params(self):
+        self.d = 3.0
+
+        all_hel, remove_hel = self.get_helicity_list2()
+        ls = self.get_ls_list()
+
+        self.g_ls = self.add_var(
+            "g_ls",
+            is_complex=True,
+            shape=(len(ls) - len(remove_hel),),
+            is_cp=True,
+        )
+        try:
+            self.g_ls.set_fix_idx(fix_idx=0, fix_vals=(1.0, 0.0))
+        except Exception as e:
+            print(e, self, self.get_ls_list())
+
+        all_matrix = self.get_cg_matrix()
+        print(all_hel, remove_hel)
+
+        matrix = []
+        for i, j in remove_hel:
+            idx_i = _spin_int(i + self.outs[0].J)
+            idx_j = _spin_int(j + self.outs[1].J)
+            matrix.append(all_matrix[:, idx_i, idx_j])
+        # m g = h
+        matrix = np.stack(matrix)
+        # m_{zero,last} g_{last} + m_{zero, head} g_{head} = 0
+        # m_{zero,last} g_{last} = - m_{zero,last}^{-1}  m_{zero, head} g_{head}
+        matrix_inv = np.linalg.inv(matrix[:, -len(remove_hel) :])
+        self.trans_matrix = (
+            -np.dot(matrix_inv, matrix[:, : -len(remove_hel)]) + 0.0j
+        )
+
+    def get_helicity_list2(self):
+        all_hel = []
+        for i in _spin_range(-self.outs[0].J, self.outs[0].J):
+            for j in _spin_range(-self.outs[1].J, self.outs[1].J):
+                if abs(i - j) <= self.core.J:
+                    if self.p_break or (-i, -j) not in all_hel:
+                        all_hel.append((i, j))
+        reduce_item = []
+        for hi in all_hel:
+            flag = False
+            for p, k in zip(self.outs, hi):
+                if p.get_mass() == 0 and k == 0:
+                    flag = True
+            if flag:
+                reduce_item.append(hi)
+        return all_hel, reduce_item
+
+    def get_g_ls(self, charge=1):
+        gls = self.g_ls(charge)
+        gls = tf.stack(gls)
+        gls_last = tf.linalg.matvec(self.trans_matrix, gls)
+        gls = list(tf.unstack(gls)) + list(tf.unstack(gls_last))
+        if self.ls_index is None:
+            return tf.stack(gls)
+        return tf.stack([gls[k] for k in self.ls_index])
