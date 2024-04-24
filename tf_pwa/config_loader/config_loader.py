@@ -1226,6 +1226,8 @@ class PlotParams(dict):
             self.params.append(i)
         for i in self.get_angle_vars(True):
             self.params.append(i)
+        for i in self.get_index_vars():
+            self.params.append(i)
         for i in self.get_extra_vars():
             self.params.append(i)
 
@@ -1416,6 +1418,30 @@ class PlotParams(dict):
             id_ = v.get("id", k)
             display = v.get("display", str(expr))
             common_config = self.read_plot_config(v)
+            yield {
+                **common_config,
+                "name": k,
+                "display": display,
+                "readdata": readdata,
+            }
+
+    def get_index_vars(self):
+
+        dic = self.config.get("index", {})
+
+        for k, v in dic.items():
+            idx = self.get_data_index("index", k)
+            id_ = v.get("id", k)
+            display = v.get("display", str(k))
+            trans = v.get("trans", None)
+            if trans is None:
+                trans = lambda x: x
+            else:
+                trans = sy.sympify(trans)
+                x = sy.symbols("x")
+                trans = sy.lambdify(x, trans, modules="numpy")
+            common_config = self.read_plot_config(v)
+            readdata = ReadData(idx, trans)
             yield {
                 **common_config,
                 "name": k,

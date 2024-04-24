@@ -159,16 +159,14 @@ def get_all_frame(self):
         name = conf.get("name")
         display = conf.get("display", name)
         upper_ylim = conf.get("upper_ylim", None)
-        idx = conf.get("idx")
-        trans = conf.get("trans", lambda x: x)
+        readdata = conf.get("readdata")
         has_legend = conf.get("legend", False)
         xrange = conf.get("range", None)
         bins = conf.get("bins", None)
         units = conf.get("units", "")
         yscale = conf.get("yscale", "linear")
         ret[name] = Frame(
-            idx,
-            trans=trans,
+            readdata,
             name=name,
             display=display,
             x_range=xrange,
