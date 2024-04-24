@@ -240,8 +240,9 @@ class MultiConfig(object):
         with open(file_name, "w") as f:
             json.dump(val, f, indent=2)
 
-    def plot_partial_wave(self, params=None, prefix="figure/all", **kwargs):
-
+    def _get_plot_partial_wave_input(
+        self, params=None, prefix="figure/all", save_root=False, **kwargs
+    ):
         path = os.path.dirname(prefix)
         os.makedirs(path, exist_ok=True)
 
@@ -276,7 +277,28 @@ class MultiConfig(object):
                     print("com_plot: set", k, "to 0 for sample", idx)
                     phsp[k] = np.zeros_like(phsp["MC_total_fit"])
         phsp_dict = data_to_numpy(data_merge(*[i[1] for i in all_data]))
+
+        if save_root:
+            save_dict_to_root(
+                [data_dict, phsp_dict, bg_dict],
+                file_name=prefix + "variables_com.root",
+                tree_name=["data", "fitted", "sideband"],
+            )
+            print("Save root file " + prefix + "com_variables.root")
+
+        return (data_dict, phsp_dict, bg_dict), extra
+
+    def plot_partial_wave(
+        self, params=None, prefix="figure/all", save_root=False, **kwargs
+    ):
+
+        data, extra = self._get_plot_partial_wave_input(
+            params=params, prefix=prefix, save_root=save_root, **kwargs
+        )
+
+        data_dict, phsp_dict, bg_dict = data
         _, plot_var_dic, chain_property, nll = extra
+
         self.configs[-1]._plot_partial_wave(
             data_dict,
             phsp_dict,

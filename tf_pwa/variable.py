@@ -426,8 +426,9 @@ class VarsManager(object):
         else:
             if name in self.bnd_dic:
                 value = self.bnd_dic[name].get_y2x(value)
-        self.variables[name].assign(value)
-        self.variables[name]._trainable = unfix
+        if name in self.variables:
+            self.variables[name].assign(value)
+            self.variables[name]._trainable = unfix
         if unfix:
             if name in self.trainable_vars:
                 warnings.warn("{} has been freed already!".format(name))
