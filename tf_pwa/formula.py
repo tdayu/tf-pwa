@@ -1,3 +1,4 @@
+import numpy as np
 import sympy
 
 from tf_pwa.breit_wigner import get_bprime_coeff
@@ -141,3 +142,25 @@ def create_numpy_function(f, var, val, x, modules="numpy"):
     f_val = _flatten(val)
     f = f.subs(dict(zip(f_var, f_val)))
     return sympy.lambdify(x, f, modules=modules)
+
+
+def build_expr_function(expr):
+
+    expr = sympy.simplify(expr)
+
+    all_symbols = expr.free_symbols
+    all_symbols = tuple(all_symbols)
+
+    used_var = []
+    for i in all_symbols:
+        used_var.append(str(i))
+
+    custom_function = {
+        "float": lambda x: np.array(x).astype(np.float64),
+        "int": lambda x: np.array(x).astype(np.int32),
+    }
+
+    f_expr = sympy.lambdify(
+        all_symbols, expr, modules=[custom_function, "numpy"]
+    )
+    return f_expr, used_var

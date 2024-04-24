@@ -735,3 +735,17 @@ def check_nan(data, no_raise=False):
         return True
 
     return _check_nan(data, head_keys)
+
+
+class ReadData:
+    def __init__(self, var, trans=None):
+        self.var = var
+        self.trans = (lambda x: x) if trans is None else trans
+
+    def __call__(self, data):
+        value = data_index(data, self.var)
+        value = self.trans(value)
+        return value
+
+    def __repr__(self):
+        return str(self.var)

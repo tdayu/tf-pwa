@@ -15,7 +15,7 @@ from tf_pwa.config_loader.plot import (
     _get_cfit_eff_phsp,
     create_chain_property,
 )
-from tf_pwa.data import batch_call, data_index, data_shape
+from tf_pwa.data import ReadData, batch_call, data_index, data_shape
 from tf_pwa.histogram import Hist1D, WeightedData
 
 logger = logging.getLogger(__file__)
@@ -54,20 +54,6 @@ class PlotData:
             return WeightedData(value, weights=w * self.scale, **kwargs)
         else:
             return Hist1D.histogram(value, weights=w * self.scale, **kwargs)
-
-
-class ReadData:
-    def __init__(self, var, trans=None):
-        self.var = var
-        self.trans = (lambda x: x) if trans is None else trans
-
-    def __call__(self, data):
-        value = data_index(data, self.var)
-        value = self.trans(value)
-        return value
-
-    def __repr__(self):
-        return str(self.var)
 
 
 class PlotDataGroup:
