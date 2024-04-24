@@ -1405,9 +1405,9 @@ class PlotParams(dict):
                     idx = idx[0], "/".join(idx[1])
                     var_f = ReadData(self.get_data_index(*idx))
                 elif isinstance(idx, str):
-                    for k in self.params:
-                        if k["name"] == idx:
-                            var_f.append(k["readdata"])
+                    for j in self.params:
+                        if j["name"] == idx:
+                            var_f.append(j["readdata"])
                 else:
                     raise TypeError("unknown variables for trans ")
 
