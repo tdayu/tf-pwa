@@ -217,17 +217,22 @@ def create_chain_property(self, res):
     return chain_property
 
 
-def create_plot_var_dic(plot_params):
+def create_plot_var_dic(plot_params, extra_plots=None):
+    extra_plots = [] if extra_plots is None else extra_plots
     plot_var_dic = {}
-    for conf in plot_params.get_params():
+    common_bins = None
+    for conf in plot_params.get_params() + extra_plots:
         name = conf.get("name")
         display = conf.get("display", name)
         upper_ylim = conf.get("upper_ylim", None)
-        idx = conf.get("idx")
+        idx = conf.get("idx", (None,))
         trans = conf.get("trans", lambda x: x)
+        readdata = conf.get("readdata")
         has_legend = conf.get("legend", False)
         xrange = conf.get("range", None)
-        bins = conf.get("bins", None)
+        bins = conf.get("bins", common_bins)
+        if common_bins is None:
+            common_bins = bins
         legend_outside = conf.get("legend_outside", False)
         units = conf.get("units", "")
         yscale = conf.get("yscale", "linear")
@@ -238,6 +243,7 @@ def create_plot_var_dic(plot_params):
             "legend_outside": legend_outside,
             "idx": idx,
             "trans": trans,
+            "readdata": readdata,
             "range": xrange,
             "bins": bins,
             "units": units,
@@ -376,6 +382,7 @@ def _get_plot_partial_wave_input(
     chains_id_method=None,
     cut_function=lambda x: 1,
     partial_waves_function=None,
+    extra_plots=None,
     **kwargs
 ):
     """
@@ -443,7 +450,9 @@ def _get_plot_partial_wave_input(
             [i, "pw_{}".format(i), "partial waves {}".format(i), None]
             for i in range(100)
         ]
-    plot_var_dic = create_plot_var_dic(self.plot_params)
+    plot_var_dic = create_plot_var_dic(
+        self.plot_params, extra_plots=extra_plots
+    )
 
     if self._Ngroup == 1:
         data_dict, phsp_dict, bg_dict = self._cal_partial_wave(
@@ -660,12 +669,10 @@ def _cal_partial_wave(
                 weight_i
             )
         for name in plot_var_dic:
-            idx = plot_var_dic[name]["idx"]
-            trans = lambda x: np.reshape(plot_var_dic[name]["trans"](x), (-1,))
+            readdata = plot_var_dic[name]["readdata"]
+            idx = plot_var_dic[name].get("idx", (None,))
 
-            data_i = batch_call_numpy(
-                lambda x: trans(data_index(x, idx)), data, batch
-            )
+            data_i = batch_call_numpy(readdata, data, batch)
             if idx[-1] == "m":
                 tmp_idx = list(idx)
                 tmp_idx[-1] = "p"
@@ -682,15 +689,11 @@ def _cal_partial_wave(
                     data_dict[name + "_PZ"] = p4[3]
             data_dict[name] = data_i  # data variable
 
-            phsp_i = batch_call_numpy(
-                lambda x: trans(data_index(x, idx)), phsp_rec, batch
-            )
+            phsp_i = batch_call_numpy(readdata, phsp_rec, batch)
             phsp_dict[name + "_MC"] = phsp_i  # MC
 
             if bg is not None:
-                bg_i = batch_call_numpy(
-                    lambda x: trans(data_index(x, idx)), bg, batch
-                )
+                bg_i = batch_call_numpy(readdata, bg, batch)
                 bg_dict[name + "_sideband"] = bg_i  # sideband
     data_dict = data_to_numpy(data_dict)
     phsp_dict = data_to_numpy(phsp_dict)
@@ -1391,7 +1394,7 @@ def plot_function_2dpull(
     normal = mpl.colors.Normalize(vmin=-max_weight, vmax=max_weight)
     im = mpl.cm.ScalarMappable(norm=normal, cmap=my_cmap)
     # ax.colorbar(im)
-    ax.get_figure().colorbar(im)
+    ax.get_figure().colorbar(im, ax=ax)
     ax.set_title(
         "$\\chi^2/Nbins={:.2f}/{}$".format(
             np.sum(np.abs(pulls) ** 2), len(bound)

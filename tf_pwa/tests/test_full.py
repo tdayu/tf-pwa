@@ -165,10 +165,15 @@ def test_cfit(gen_toy):
         linestyle_file="toy_data/a.yml",
         chains_id_method="res",
     )
+
+    def f(x):
+        return x.get_weight()
+
     config.plot_partial_wave_interf(
         "R_BC",
         "R_BD",
         prefix="toy_data/figure/interf_",
+        extra_plots=[{"name": "weight", "readdata": f}],
     )
     config.plot_partial_wave_interf(
         "R_BC",
