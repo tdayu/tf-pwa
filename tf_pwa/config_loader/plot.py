@@ -217,9 +217,11 @@ def create_chain_property(self, res):
     return chain_property
 
 
-def create_plot_var_dic(plot_params):
+def create_plot_var_dic(plot_params, extra_plots=None):
+    extra_plots = [] if extra_plots is None else extra_plots
     plot_var_dic = {}
-    for conf in plot_params.get_params():
+    common_bins = None
+    for conf in plot_params.get_params() + extra_plots:
         name = conf.get("name")
         display = conf.get("display", name)
         upper_ylim = conf.get("upper_ylim", None)
@@ -228,7 +230,9 @@ def create_plot_var_dic(plot_params):
         readdata = conf.get("readdata")
         has_legend = conf.get("legend", False)
         xrange = conf.get("range", None)
-        bins = conf.get("bins", None)
+        bins = conf.get("bins", common_bins)
+        if common_bins is None:
+            common_bins = bins
         legend_outside = conf.get("legend_outside", False)
         units = conf.get("units", "")
         yscale = conf.get("yscale", "linear")
@@ -378,6 +382,7 @@ def _get_plot_partial_wave_input(
     chains_id_method=None,
     cut_function=lambda x: 1,
     partial_waves_function=None,
+    extra_plots=None,
     **kwargs
 ):
     """
@@ -445,7 +450,9 @@ def _get_plot_partial_wave_input(
             [i, "pw_{}".format(i), "partial waves {}".format(i), None]
             for i in range(100)
         ]
-    plot_var_dic = create_plot_var_dic(self.plot_params)
+    plot_var_dic = create_plot_var_dic(
+        self.plot_params, extra_plots=extra_plots
+    )
 
     if self._Ngroup == 1:
         data_dict, phsp_dict, bg_dict = self._cal_partial_wave(
