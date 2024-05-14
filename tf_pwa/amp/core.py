@@ -308,6 +308,7 @@ def simple_cache_fun(f):
     return g
 
 
+@tf.function
 def get_relative_p(m_0, m_1, m_2):
     """relative momentum for 0 -> 1 + 2"""
     M12S = m_1 + m_2
@@ -321,6 +322,7 @@ def get_relative_p(m_0, m_1, m_2):
     return tf.sqrt(p) / (2 * m_eff)
 
 
+@tf.function
 def get_relative_p2(m_0, m_1, m_2):
     """relative momentum for 0 -> 1 + 2"""
     M12S = m_1 + m_2
@@ -407,6 +409,7 @@ class Particle(BaseParticle, AmpBase):
                     return False
         return True
 
+    @tf.function
     def get_amp(self, data, data_c, **kwargs):
         mass = self.get_mass()
         width = self.get_width()
@@ -814,6 +817,7 @@ class HelicityDecay(AmpDecay):
             for i in self.mask_factor_vars():
                 yield {k: 0.0 for k in all_var if k != i}
 
+    @tf.function
     def _get_particle_mass(self, p, data, from_data=False):
         if from_data and p in data:
             return data[p]["m"]
@@ -947,6 +951,7 @@ class HelicityDecay(AmpDecay):
             data[i] = {"ang": {"alpha": zero, "beta": zero, "gamma": zero}}
         return {"data": data, "data_p": data_p}
 
+    @tf.function
     def get_helicity_amp(self, data, data_p, **kwargs):
         m_dep = self.get_ls_amp(data, data_p, **kwargs)
         cg_trans = tf.cast(self.get_cg_matrix(), m_dep.dtype)
@@ -1041,6 +1046,7 @@ class HelicityDecay(AmpDecay):
             m_dep = tf.reshape(g_ls, (1, -1))
         return m_dep
 
+    @tf.function
     def get_ls_amp(self, data, data_p, **kwargs):
         g_ls = self.get_g_ls()
         q0 = self.get_relative_momentum2(data_p, False)
@@ -1072,6 +1078,7 @@ class HelicityDecay(AmpDecay):
         g_ls = self.get_angle_g_ls()
         return g_ls
 
+    @tf.function
     def get_barrier_factor(self, mass, q, q0, d):
         ls = self.get_l_list()
         ret = []
@@ -1164,7 +1171,8 @@ class HelicityDecay(AmpDecay):
                     ret = dt * ret
                     ret = tf.reduce_sum(ret, axis=j + 2)
         return ret
-
+    
+    @tf.function
     def get_amp(self, data, data_p, **kwargs):
         a = self.core
         b = self.outs[0]
@@ -1408,6 +1416,7 @@ class DecayChain(AmpDecayChain):
         total = tf.where(charge_cond, total_pos, total_neg)
         return total
 
+    @tf.function
     def get_amp(self, data_c, data_p, all_data=None, base_map=None):
         base_map = self.get_base_map(base_map)
         iter_idx = ["..."]
@@ -1579,6 +1588,7 @@ class DecayChain(AmpDecayChain):
             amp_d.append(total)
         return amp_d
 
+    @tf.function
     def get_amp_particle(self, data_p, data_c, all_data=None):
         amp_p = []
         if not self.inner:
@@ -1712,6 +1722,7 @@ class DecayGroup(BaseDecayGroup, AmpBase):
                     yield self.chains[i], j
             self.chains_idx = old_chains_idx
 
+    @tf.function
     def get_amp(self, data):
         """
         calculate the amplitude as complex number

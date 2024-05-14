@@ -37,7 +37,7 @@ def _resolution_shape(x):
 
 set_nll_model, get_nll_model, register_nll_model = create_config()
 
-
+@tf.function(jit_compile=True)
 def _batch_sum(f, data_i, weight_i, trans, resolution_size, args, kwargs):
     weight_shape = (-1, min(_resolution_shape(weight_i), resolution_size))
     part_y = f(data_i, *args, **kwargs)
@@ -404,6 +404,7 @@ class BaseModel(object):
     def trainable_variables(self):
         return self.signal.trainable_variables
 
+    # @tf.function
     def nll_grad_batch(self, data, mcdata, weight, mc_weight):
         """
         ``self.nll_grad()`` is replaced by this one???

@@ -142,6 +142,7 @@ def remove_size1(expr, *args, extra=None):
     return expr2, ret, size_map
 
 
+@tf.function
 def einsum(expr, *args, **kwargs):
     shapes = [replace_none_in_shape(i.shape, 10000) for i in args]
     expr, extra = replace_ellipsis(expr, shapes)

@@ -44,6 +44,7 @@ def regist_lineshape(name=None):
 
 
 @regist_lineshape("one")
+@tf.function
 def one(*args):
     """
     A uniform function
@@ -54,6 +55,7 @@ def one(*args):
 
 
 @regist_lineshape("BW")
+@tf.function
 def BW(m, m0, g0, *args):
     """
     Breit-Wigner function
@@ -73,6 +75,7 @@ def BW(m, m0, g0, *args):
 
 @regist_lineshape("default")  # 两个名字
 @regist_lineshape("BWR")  # BW with running width
+@tf.function
 def BWR(m, m0, g0, q, q0, L, d):
     """
     Relativistic Breit-Wigner function (with running width). It's also set as the default lineshape.
@@ -228,6 +231,7 @@ def BWR_normal(m, m0, g0, q2, q02, L, d):
     return ret
 
 
+@tf.function
 def Gamma(m, gamma0, q, q0, L, m0, d):
     """
     Running width in the RBW
@@ -277,6 +281,7 @@ def Bprime_q2(L, q2, q02, d):
     return tf.sqrt(tf.where(bp > 0, bp, 1.0))
 
 
+@tf.function
 def Bprime_num(L, q, d):
     """
     The numerator (as well as the denominator) inside the square root in the barrier factor
@@ -287,6 +292,7 @@ def Bprime_num(L, q, d):
     return tf.sqrt(bp)
 
 
+@tf.function
 def Bprime(L, q, q0, d):
     """
     Blatt-Weisskopf barrier factors. E.g. the first three orders
@@ -329,6 +335,7 @@ def barrier_factor2(l, q, q0, d=3.0, axis=-1):  # cache q^l * B_l 只用于H里
     return tf.concat(ret, axis=axis)
 
 
+@tf.function
 def Bprime_polynomial(l, z):
     """
     It stores the Blatt-Weisskopf polynomial up to the fifth order (:math:`L=5`)

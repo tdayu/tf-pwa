@@ -192,7 +192,7 @@ def exp_i(theta, mi):
     exp_theta = tf.exp(im_theta)
     return exp_theta
 
-
+@tf.function
 def D_matrix_conj(alpha, beta, gamma, j):
     """
     The conjugated D-matrix element with indices (:math:`m_1,m_2`) is
@@ -218,6 +218,7 @@ def D_matrix_conj(alpha, beta, gamma, j):
     return ret
 
 
+@tf.function
 def get_D_matrix_for_angle(angle, j, cached=True):
     """
     Interface to *D_matrix_conj()*
@@ -238,6 +239,7 @@ def get_D_matrix_for_angle(angle, j, cached=True):
     return D_matrix_conj(alpha, beta, gamma, j)
 
 
+@tf.function
 def get_D_matrix_lambda(angle, ja, la, lb, lc=None):
     """
     Get the D-matrix element
